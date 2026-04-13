@@ -19,6 +19,12 @@ class SimpleRSTHeader(FixedWidthHeader):
     splitter_class = DefaultSplitter
     position_char = "="
 
+    def __init__(self, header_start=0):
+        super().__init__()
+        self.header_start = header_start
+        if header_start > 0:
+            self.start_line = header_start + 1
+
     def get_fixedwidth_params(self, line):
         vals, starts, ends = super().get_fixedwidth_params(line)
         # The right hand column can be unbounded
@@ -30,6 +36,12 @@ class SimpleRSTData(FixedWidthData):
     start_line = 3
     end_line = -1
     splitter_class = FixedWidthTwoLineDataSplitter
+
+    def __init__(self, header_start=0):
+        super().__init__()
+        self.header_start = header_start
+        if header_start > 0:
+            self.start_line = header_start + 3
 
 
 class RST(FixedWidth):
@@ -50,6 +62,12 @@ class RST(FixedWidth):
     or for ones which define column spans through the use of an additional
     line of dashes in the header.
 
+    Parameters
+    ----------
+    header_start : int, optional
+        Line index for the header row (default=0). If header_start > 0,
+        the header will be taken from the specified line instead of the first line.
+
     """
 
     _format_name = "rst"
@@ -57,8 +75,11 @@ class RST(FixedWidth):
     data_class = SimpleRSTData
     header_class = SimpleRSTHeader
 
-    def __init__(self):
+    def __init__(self, header_start=0):
         super().__init__(delimiter_pad=None, bookend=False)
+        self.header_start = header_start
+        self.header = self.header_class(header_start=header_start)
+        self.data = self.data_class(header_start=header_start)
 
     def write(self, lines):
         lines = super().write(lines)
