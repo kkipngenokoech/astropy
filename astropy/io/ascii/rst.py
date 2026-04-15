@@ -62,5 +62,14 @@ class RST(FixedWidth):
 
     def write(self, lines):
         lines = super().write(lines)
-        lines = [lines[1]] + lines + [lines[1]]
+        # For RST format, we need separator lines at top, after header, and bottom
+        if len(lines) > 1:
+            # lines[1] is the separator line with '=' characters
+            separator_line = lines[1]
+            # Insert separator at top, after header (line 2), and at bottom
+            lines = [separator_line] + lines + [separator_line]
+        else:
+            # Fallback for edge case
+            lines = super().write(lines)
+            lines = [lines[1]] + lines + [lines[1]]
         return lines
