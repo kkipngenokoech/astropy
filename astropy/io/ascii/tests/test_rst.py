@@ -159,6 +159,25 @@ def test_trailing_spaces_in_row_definition():
     assert_equal(dat[1][0], 1)
 
 
+def test_rst_header_rows_parameter():
+    """Test that RST class accepts header_rows parameter without TypeError"""
+    # Test with default parameter (should work as before)
+    rst_default = ascii.RST()
+    assert rst_default is not None
+    
+    # Test with header_rows as integer
+    rst_int = ascii.RST(header_rows=2)
+    assert rst_int is not None
+    
+    # Test with header_rows as list
+    rst_list = ascii.RST(header_rows=['name', 'unit'])
+    assert rst_list is not None
+    
+    # Test with header_rows as None (explicit)
+    rst_none = ascii.RST(header_rows=None)
+    assert rst_none is not None
+
+
 table = """\
 ====== =========== ============ ===========
   Col1    Col2        Col3        Col4
