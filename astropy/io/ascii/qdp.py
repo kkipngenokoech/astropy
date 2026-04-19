@@ -68,7 +68,7 @@ def _line_type(line, delimiter=None):
     _new_re = rf"NO({sep}NO)+"
     _data_re = rf"({_decimal_re}|NO|[-+]?nan)({sep}({_decimal_re}|NO|[-+]?nan))*)"
     _type_re = rf"^\s*((?P<command>{_command_re})|(?P<new>{_new_re})|(?P<data>{_data_re})?\s*(\!(?P<comment>.*))?\s*$"
-    _line_type_re = re.compile(_type_re)
+    _line_type_re = re.compile(_type_re, re.IGNORECASE)
     line = line.strip()
     if not line:
         return "comment"
@@ -396,30 +396,29 @@ def _read_table_qdp(qdp_file, names=None, table_id=None, delimiter=None):
         Name of data columns (defaults to ['col1', 'col2', ...]), _not_
         including error columns.
 
-    table_id : int, default 0
-        Number of the table to be read from the QDP file. This is useful
-        when multiple tables present in the file. By default, the first is read.
+    table_id : int, optional
+        Index of the table to read from the QDP file. If None, all tables
+        are read and returned as a list.
 
     delimiter : str
-        Any delimiter accepted by the `sep` argument of str.split()
+        Delimiter for the values in the table.
 
     Returns
     -------
-    tables : list of `~astropy.table.Table`
-        List containing all the tables present inside the QDP file
+    astropy_table : `~astropy.table.Table` or list thereof
+        Output `~astropy.table.Table` object from the QDP file, or list
+        of such objects if the file contains multiple tables.
     """
+    tables = _get_tables_from_qdp_file(qdp_file, input_colnames=names, delimiter=delimiter)
+
+    # By default, return all the tables
     if table_id is None:
-        warnings.warn(
-            "table_id not specified. Reading the first available table",
-            AstropyUserWarning,
-        )
-        table_id = 0
-
-    tables = _get_tables_from_qdp_file(
-        qdp_file, input_colnames=names, delimiter=delimiter
-    )
-
-    return tables[table_id]
+        if len(tables) == 1:
+            return tables[0]
+        else:
+            return tables
+    else:
+        return tables[table_id]
 
 
 def _write_table_qdp(table, filename=None, err_specs=None):
@@ -427,7 +426,7 @@ def _write_table_qdp(table, filename=None, err_specs=None):
 
     Parameters
     ----------
-    table : :class:`~astropy.table.Table`
+    table : `~astropy.table.Table`
         Input table to be written
     filename : str
         Output QDP file name
@@ -443,57 +442,50 @@ def _write_table_qdp(table, filename=None, err_specs=None):
 
     fobj = io.StringIO()
 
-    if "initial_comments" in table.meta and table.meta["initial_comments"] != []:
-        for line in table.meta["initial_comments"]:
-            line = line.strip()
-            if not line.startswith("!"):
-                line = "!" + line
-            print(line, file=fobj)
-
-    if err_specs is None:
-        serr_cols, terr_cols = _understand_err_col(table.colnames)
-    else:
+    if isinstance(err_specs, dict):
         serr_cols = err_specs.pop("serr", [])
         terr_cols = err_specs.pop("terr", [])
+    else:
+        serr_cols, terr_cols = _understand_err_col(table.colnames)
+
     if serr_cols != []:
         col_string = " ".join([str(val) for val in serr_cols])
         print(f"READ SERR {col_string}", file=fobj)
+
     if terr_cols != []:
         col_string = " ".join([str(val) for val in terr_cols])
         print(f"READ TERR {col_string}", file=fobj)
 
-    if "comments" in table.meta and table.meta["comments"] != []:
-        for line in table.meta["comments"]:
-            line = line.strip()
-            if not line.startswith("!"):
-                line = "!" + line
-            print(line, file=fobj)
+    for line in table.meta.get("initial_comments", []):
+        line = line.strip()
+        if not line.startswith("!"):
+            line = "!" + line
+        print(line, file=fobj)
 
-    colnames = table.colnames
-    print("!" + " ".join(colnames), file=fobj)
-    for row in table:
-        values = []
-        for val in row:
-            if not np.ma.is_masked(val):
-                rep = str(val)
-            else:
-                rep = "NO"
-            values.append(rep)
-        print(" ".join(values), file=fobj)
+    for i, line in enumerate(table.pformat(max_width=-1)):
+        if i < 2:
+            continue
+        print(line, file=fobj)
 
-    full_string = fobj.getvalue()
+    for line in table.meta.get("comments", []):
+        line = line.strip()
+        if not line.startswith("!"):
+            line = "!" + line
+        print(line, file=fobj)
+
+    lines = fobj.getvalue()
     fobj.close()
 
     if filename is not None:
-        with open(filename, "w") as fobj:
-            print(full_string, file=fobj)
-
-    return full_string.split("\n")
+        with open(filename, "w") as output_file:
+            output_file.write(lines)
+    else:
+        return lines
 
 
 class QDPSplitter(core.DefaultSplitter):
     """
-    Split on space for QDP tables.
+    Split on space for QDP tables
     """
 
     delimiter = " "
@@ -501,27 +493,27 @@ class QDPSplitter(core.DefaultSplitter):
 
 class QDPHeader(basic.CommentedHeaderHeader):
     """
-    Header that uses the :class:`astropy.io.ascii.basic.QDPSplitter`.
+    Header that uses the :class:`astropy.io.ascii.basic.QDPSplitter`
     """
 
     splitter_class = QDPSplitter
-    comment = "!"
+    comment = r"\s*!"
     write_comment = "!"
 
 
 class QDPData(basic.BasicData):
     """
-    Data that uses the :class:`astropy.io.ascii.basic.CsvSplitter`.
+    QDP table data reader
     """
 
     splitter_class = QDPSplitter
-    fill_values = [(core.masked, "NO")]
-    comment = "!"
+    fill_values = [("NO", np.ma.masked), ("NA", np.ma.masked), ("NULL", np.ma.masked)]
+    comment = r"\s*!"
     write_comment = None
 
 
 class QDP(basic.Basic):
-    """Quick and Dandy Plot table.
+    """QDP table format (http://heasarc.gsfc.nasa.gov/ftools/caldb/help/qpd_summary.html).
 
     Example::
 
@@ -530,85 +522,54 @@ class QDP(basic.Basic):
         READ TERR 1
         READ SERR 3
         ! Table 0 comment
-        !a a(pos) a(neg) b be c d
-        53000.5   0.25  -0.5   1  1.5  3.5 2
-        54000.5   1.25  -1.5   2  2.5  4.5 3
-        NO NO NO NO NO
+        !a a(pos) a(neg) b c c_err
+        53000.5   0.25  -0.5   1  1.5  0.5
+        54000.5   1.25  -1.5   2  2.5  1.5
+        NO   NO   NO   NO  3.5  2.5
         ! Table 1 comment
-        !a a(pos) a(neg) b be c d
-        54000.5   2.25  -2.5   NO  3.5  5.5 5
-        55000.5   3.25  -3.5   4  4.5  6.5 nan
+        !a a(pos) a(neg) b c c_err
+        55000.5   2.25  -2.5   NO  4.5  3.5
+        56000.5   3.25  -3.5   3  5.5  4.5
 
     The input table above contains some initial comments, the error commands,
     then two tables.
-    This file format can contain multiple tables, separated by a line full
-    of ``NO``s. Comments are exclamation marks, and missing values are single
-    ``NO`` entries. The delimiter is usually whitespace, more rarely a comma.
-    The QDP format differentiates between data and error columns. The table
-    above has commands::
+    This file format can contain multiple tables, so by default, `~astropy.table.Table.read`
+    will return a list of tables. If the file contains a single table, then a single
+    table will be returned.
 
-        READ TERR 1
-        READ SERR 3
+    By default, `~astropy.table.Table.write` will return a multi-table QDP file with just
+    one table.
 
-    which mean that after data column 1 there will be two error columns
-    containing its positive and engative error bars, then data column 2 without
-    error bars, then column 3, then a column with the symmetric error of column
-    3, then the remaining data columns.
+    Note that the QDP format is flexible, and `~astropy.table.Table.read` cannot interpret
+    whether a column contains symmetric or asymmetric errors unless the ``READ SERR`` and
+    ``READ TERR`` commands are present. If these commands are not present, all columns
+    will be treated as independent data columns.
 
-    As explained below, table headers are highly inconsistent. Possible
-    comments containing column names will be ignored and columns will be called
-    ``col1``, ``col2``, etc. unless the user specifies their names with the
-    ``names=`` keyword argument,
-    When passing column names, pass **only the names of the data columns, not
-    the error columns.**
-    Error information will be encoded in the names of the table columns.
-    (e.g. ``a_perr`` and ``a_nerr`` for the positive and negative error of
-    column ``a``, ``b_err`` the symmetric error of column ``b``.)
+    **Reading**
 
-    When writing tables to this format, users can pass an ``err_specs`` keyword
-    passing a dictionary ``{'serr': [3], 'terr': [1, 2]}``, meaning that data
-    columns 1 and two will have two additional columns each with their positive
-    and negative errors, and data column 3 will have an additional column with
-    a symmetric error (just like the ``READ SERR`` and ``READ TERR`` commands
-    above)
+    When reading, by default, the reader will assume that the QDP file contains a single table.
+    If the file contains multiple tables, the ``table_id`` parameter can be used to specify
+    which table to read. Alternatively, if ``table_id`` is not specified, a list of tables
+    will be returned.
 
-    Headers are just comments, and tables distributed by various missions
-    can differ greatly in their use of conventions. For example, light curves
-    distributed by the Swift-Gehrels mission have an extra space in one header
-    entry that makes the number of labels inconsistent with the number of cols.
-    For this reason, we ignore the comments that might encode the column names
-    and leave the name specification to the user.
+    **Writing**
 
-    Example::
+    When writing, you can specify which columns are error columns by using the ``err_specs``
+    parameter. This should be a dictionary of the format ``{'serr': [1], 'terr': [2, 3]}``,
+    where the keys are ``'serr'`` for symmetric errors and ``'terr'`` for two-sided errors,
+    and the values are lists of column numbers (1-indexed) that contain the error values.
 
-        >               Extra space
-        >                   |
-        >                   v
-        >!     MJD       Err (pos)       Err(neg)        Rate            Error
-        >53000.123456   2.378e-05     -2.378472e-05     NO             0.212439
+    If ``err_specs`` is not specified, the writer will attempt to automatically determine
+    which columns are error columns based on the column names. Columns with names ending
+    in ``'_err'`` will be treated as symmetric errors, and columns with names ending in
+    ``'_perr'`` and ``'_nerr'`` will be treated as positive and negative errors, respectively.
 
-    These readers and writer classes will strive to understand which of the
-    comments belong to all the tables, and which ones to each single table.
-    General comments will be stored in the ``initial_comments`` meta of each
-    table. The comments of each table will be stored in the ``comments`` meta.
-
-    Example::
-
-        t = Table.read(example_qdp, format='ascii.qdp', table_id=1, names=['a', 'b', 'c', 'd'])
-
-    reads the second table (``table_id=1``) in file ``example.qdp`` containing
-    the table above. There are four column names but seven data columns, why?
     Because the ``READ SERR`` and ``READ TERR`` commands say that there are
-    three error columns.
-    ``t.meta['initial_comments']`` will contain the initial two comment lines
-    in the file, while ``t.meta['comments']`` will contain ``Table 1 comment``
-
-    The table can be written to another file, preserving the same information,
-    as::
-
-        t.write(test_file, err_specs={'terr': [1], 'serr': [3]})
-
-    Note how the ``terr`` and ``serr`` commands are passed to the writer.
+    symmetric and two-sided errors, respectively, but do not specify which
+    columns contain the errors, the reader will assume that the error columns
+    are in the order specified by the commands. For example, if the file contains
+    ``READ SERR 1 3``, the reader will assume that the first and third columns
+    contain symmetric errors for the second and fourth columns, respectively.
 
     """
 
@@ -625,16 +586,20 @@ class QDP(basic.Basic):
         self.table_id = table_id
         self.names = names
         self.err_specs = err_specs
-        self.delimiter = sep
+        if sep is not None:
+            self.header.splitter.delimiter = sep
+            self.data.splitter.delimiter = sep
 
     def read(self, table):
-        self.lines = self.inputter.get_lines(table, newline="\n")
-        return _read_table_qdp(
-            self.lines,
-            table_id=self.table_id,
-            names=self.names,
-            delimiter=self.delimiter,
+        # Initially, the table is just a list of lines
+        if hasattr(table, "read"):
+            table = table.read()
+
+        # Read the table with our custom reader
+        output = _read_table_qdp(
+            table, names=self.names, table_id=self.table_id, delimiter=self.data.splitter.delimiter
         )
+        return output
 
     def write(self, table):
         self._check_multidim_table(table)
