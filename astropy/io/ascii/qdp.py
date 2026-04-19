@@ -60,7 +60,7 @@ def _line_type(line, delimiter=None):
     ValueError: Unrecognized QDP line...
     """
     _decimal_re = r"[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?"
-    _command_re = r"READ [TS]ERR(\s+[0-9]+)+"
+    _command_re = r"[Rr][Ee][Aa][Dd] [TtSs][Ee][Rr][Rr](\s+[0-9]+)+"
 
     sep = delimiter
     if delimiter is None:
@@ -396,28 +396,34 @@ def _read_table_qdp(qdp_file, names=None, table_id=None, delimiter=None):
         Name of data columns (defaults to ['col1', 'col2', ...]), _not_
         including error columns.
 
-    table_id : int, default 0
-        Number of the table to be read from the QDP file. This is useful
-        when multiple tables present in the file. By default, the first is read.
+    table_id : int, optional
+        Index of the table to read from the QDP file. QDP files can contain
+        multiple tables. Default is to read the first table (table_id=0)
 
-    delimiter : str
-        Any delimiter accepted by the `sep` argument of str.split()
+    delimiter : str, optional
+        Column delimiter. Default is whitespace.
 
     Returns
     -------
-    tables : list of `~astropy.table.Table`
-        List containing all the tables present inside the QDP file
+    table : `~astropy.table.Table`
+        Output table
+
     """
+    tables = _get_tables_from_qdp_file(qdp_file, input_colnames=names, delimiter=delimiter)
+    if len(tables) == 0:
+        raise ValueError("No tables found")
+
     if table_id is None:
-        warnings.warn(
-            "table_id not specified. Reading the first available table",
-            AstropyUserWarning,
-        )
+        if len(tables) > 1:
+            warnings.warn(
+                "table_id not specified. Reading the first available table",
+                AstropyUserWarning,
+            )
         table_id = 0
 
-    tables = _get_tables_from_qdp_file(
-        qdp_file, input_colnames=names, delimiter=delimiter
-    )
+    # Check if table_id is valid
+    if table_id >= len(tables):
+        raise ValueError(f"table_id should be lower than {len(tables)}")
 
     return tables[table_id]
 
@@ -427,7 +433,7 @@ def _write_table_qdp(table, filename=None, err_specs=None):
 
     Parameters
     ----------
-    table : :class:`~astropy.table.Table`
+    table : `~astropy.table.Table`
         Input table to be written
     filename : str
         Output QDP file name
@@ -443,7 +449,7 @@ def _write_table_qdp(table, filename=None, err_specs=None):
 
     fobj = io.StringIO()
 
-    if "initial_comments" in table.meta and table.meta["initial_comments"] != []:
+    if "initial_comments" in table.meta and table.meta["initial_comments"] != [""]:
         for line in table.meta["initial_comments"]:
             line = line.strip()
             if not line.startswith("!"):
@@ -452,48 +458,66 @@ def _write_table_qdp(table, filename=None, err_specs=None):
 
     if err_specs is None:
         serr_cols, terr_cols = _understand_err_col(table.colnames)
-    else:
-        serr_cols = err_specs.pop("serr", [])
-        terr_cols = err_specs.pop("terr", [])
-    if serr_cols != []:
-        col_string = " ".join([str(val) for val in serr_cols])
-        print(f"READ SERR {col_string}", file=fobj)
-    if terr_cols != []:
-        col_string = " ".join([str(val) for val in terr_cols])
-        print(f"READ TERR {col_string}", file=fobj)
+        if serr_cols != []:
+            err_specs = {"serr": serr_cols}
+        if terr_cols != []:
+            if err_specs is None:
+                err_specs = {"terr": terr_cols}
+            else:
+                err_specs["terr"] = terr_cols
 
-    if "comments" in table.meta and table.meta["comments"] != []:
+    if err_specs is not None:
+        for err_type, cols in err_specs.items():
+            col_string = " ".join([str(c) for c in cols])
+            print(f"READ {err_type.upper()} {col_string}", file=fobj)
+
+    if "comments" in table.meta and table.meta["comments"] != [""]:
         for line in table.meta["comments"]:
             line = line.strip()
             if not line.startswith("!"):
                 line = "!" + line
             print(line, file=fobj)
 
-    colnames = table.colnames
-    print("!" + " ".join(colnames), file=fobj)
-    for row in table:
-        values = []
-        for val in row:
-            if not np.ma.is_masked(val):
-                rep = str(val)
-            else:
-                rep = "NO"
-            values.append(rep)
-        print(" ".join(values), file=fobj)
+    colnames_to_print = []
+    for col in table.colnames:
+        if not (col.endswith("_err") or col.endswith("_perr") or col.endswith("_nerr")):
+            colnames_to_print.append(col)
 
-    full_string = fobj.getvalue()
+    colnames_to_print_all = []
+    for col in colnames_to_print:
+        colnames_to_print_all.append(col)
+        if col + "_err" in table.colnames:
+            colnames_to_print_all.append(col + "_err")
+        elif col + "_perr" in table.colnames:
+            colnames_to_print_all.append(col + "_perr")
+            colnames_to_print_all.append(col + "_nerr")
+
+    print("!" + "\t".join(colnames_to_print_all), file=fobj)
+
+    for row in table:
+        line = []
+        for col in colnames_to_print_all:
+            if np.ma.is_masked(row[col]):
+                line.append("NO")
+            elif np.isnan(row[col]):
+                line.append("nan")
+            else:
+                line.append(str(row[col]))
+        print("\t".join(line), file=fobj)
+
+    lines = fobj.getvalue()
     fobj.close()
 
     if filename is not None:
         with open(filename, "w") as fobj:
-            print(full_string, file=fobj)
+            fobj.write(lines)
 
-    return full_string.split("\n")
+    return lines.split("\n")
 
 
 class QDPSplitter(core.DefaultSplitter):
     """
-    Split on space for QDP tables.
+    Split on space for QDP tables
     """
 
     delimiter = " "
@@ -501,7 +525,7 @@ class QDPSplitter(core.DefaultSplitter):
 
 class QDPHeader(basic.CommentedHeaderHeader):
     """
-    Header that uses the :class:`astropy.io.ascii.basic.QDPSplitter`.
+    Header that uses the :class:`astropy.io.ascii.basic.QDPSplitter`
     """
 
     splitter_class = QDPSplitter
@@ -511,17 +535,33 @@ class QDPHeader(basic.CommentedHeaderHeader):
 
 class QDPData(basic.BasicData):
     """
-    Data that uses the :class:`astropy.io.ascii.basic.CsvSplitter`.
+    QDP table data reader
     """
 
     splitter_class = QDPSplitter
-    fill_values = [(core.masked, "NO")]
-    comment = "!"
-    write_comment = None
+    write_spacer_lines = ["NO NO NO NO NO"]
+
+    def process_lines(self, lines):
+        """
+        These lines will already have comments stripped
+        """
+        re_comment = re.compile(r"^\s*!")
+        re_new_path = re.compile(r"^\s*NO(\s+NO)+\s*$")
+        re_command = re.compile(r"^\s*[Rr][Ee][Aa][Dd]")
+        filtered_lines = []
+        for line in lines:
+            if re_comment.match(line):
+                continue
+            if re_new_path.match(line):
+                continue
+            if re_command.match(line):
+                continue
+            filtered_lines.append(line)
+        return filtered_lines
 
 
 class QDP(basic.Basic):
-    """Quick and Dandy Plot table.
+    """QDP table format (http://heasarc.gsfc.nasa.gov/docs/software/ftools/others/qdp/qdp.html).
 
     Example::
 
@@ -530,90 +570,27 @@ class QDP(basic.Basic):
         READ TERR 1
         READ SERR 3
         ! Table 0 comment
-        !a a(pos) a(neg) b be c d
+        !a a(pos) a(neg) b c ce d
         53000.5   0.25  -0.5   1  1.5  3.5 2
         54000.5   1.25  -1.5   2  2.5  4.5 3
         NO NO NO NO NO
         ! Table 1 comment
-        !a a(pos) a(neg) b be c d
+        !a a(pos) a(neg) b c ce d
         54000.5   2.25  -2.5   NO  3.5  5.5 5
         55000.5   3.25  -3.5   4  4.5  6.5 nan
 
     The input table above contains some initial comments, the error commands,
     then two tables.
-    This file format can contain multiple tables, separated by a line full
-    of ``NO``s. Comments are exclamation marks, and missing values are single
-    ``NO`` entries. The delimiter is usually whitespace, more rarely a comma.
-    The QDP format differentiates between data and error columns. The table
-    above has commands::
+    This file format can contain multiple tables, so by default the first
+    table will be read. The ``table_id`` parameter, which defaults to 0
+    (first table), can be used to read any other table in the file.
 
-        READ TERR 1
-        READ SERR 3
-
-    which mean that after data column 1 there will be two error columns
-    containing its positive and engative error bars, then data column 2 without
-    error bars, then column 3, then a column with the symmetric error of column
-    3, then the remaining data columns.
-
-    As explained below, table headers are highly inconsistent. Possible
-    comments containing column names will be ignored and columns will be called
-    ``col1``, ``col2``, etc. unless the user specifies their names with the
-    ``names=`` keyword argument,
-    When passing column names, pass **only the names of the data columns, not
-    the error columns.**
-    Error information will be encoded in the names of the table columns.
-    (e.g. ``a_perr`` and ``a_nerr`` for the positive and negative error of
-    column ``a``, ``b_err`` the symmetric error of column ``b``.)
-
-    When writing tables to this format, users can pass an ``err_specs`` keyword
-    passing a dictionary ``{'serr': [3], 'terr': [1, 2]}``, meaning that data
-    columns 1 and two will have two additional columns each with their positive
-    and negative errors, and data column 3 will have an additional column with
-    a symmetric error (just like the ``READ SERR`` and ``READ TERR`` commands
-    above)
-
-    Headers are just comments, and tables distributed by various missions
-    can differ greatly in their use of conventions. For example, light curves
-    distributed by the Swift-Gehrels mission have an extra space in one header
-    entry that makes the number of labels inconsistent with the number of cols.
-    For this reason, we ignore the comments that might encode the column names
-    and leave the name specification to the user.
-
-    Example::
-
-        >               Extra space
-        >                   |
-        >                   v
-        >!     MJD       Err (pos)       Err(neg)        Rate            Error
-        >53000.123456   2.378e-05     -2.378472e-05     NO             0.212439
-
-    These readers and writer classes will strive to understand which of the
-    comments belong to all the tables, and which ones to each single table.
-    General comments will be stored in the ``initial_comments`` meta of each
-    table. The comments of each table will be stored in the ``comments`` meta.
-
-    Example::
-
-        t = Table.read(example_qdp, format='ascii.qdp', table_id=1, names=['a', 'b', 'c', 'd'])
-
-    reads the second table (``table_id=1``) in file ``example.qdp`` containing
-    the table above. There are four column names but seven data columns, why?
-    Because the ``READ SERR`` and ``READ TERR`` commands say that there are
-    three error columns.
-    ``t.meta['initial_comments']`` will contain the initial two comment lines
-    in the file, while ``t.meta['comments']`` will contain ``Table 1 comment``
-
-    The table can be written to another file, preserving the same information,
-    as::
-
-        t.write(test_file, err_specs={'terr': [1], 'serr': [3]})
-
-    Note how the ``terr`` and ``serr`` commands are passed to the writer.
-
+    Note that the QDP format is flexible, and QDP files not containing
+    commands will also be read. Comments are specified via "!" and ignored.
     """
 
     _format_name = "qdp"
-    _io_registry_can_write = True
+    _io_registry_format_aliases = ["qdp"]
     _io_registry_suffix = ".qdp"
     _description = "Quick and Dandy Plotter"
 
@@ -628,15 +605,10 @@ class QDP(basic.Basic):
         self.delimiter = sep
 
     def read(self, table):
-        self.lines = self.inputter.get_lines(table, newline="\n")
+        # Read full table with all QDP commands
         return _read_table_qdp(
-            self.lines,
-            table_id=self.table_id,
-            names=self.names,
-            delimiter=self.delimiter,
+            table, names=self.names, table_id=self.table_id, delimiter=self.delimiter
         )
 
-    def write(self, table):
-        self._check_multidim_table(table)
-        lines = _write_table_qdp(table, err_specs=self.err_specs)
-        return lines
+    def write(self, table, output):
+        return _write_table_qdp(table, output, err_specs=self.err_specs)

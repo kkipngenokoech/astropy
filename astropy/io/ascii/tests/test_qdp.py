@@ -245,3 +245,53 @@ def test_get_lines_from_qdp(tmp_path):
         assert file_output[i] == line
         assert list_output[i] == line
         assert text_output[i] == line
+
+
+def test_case_insensitive_commands(tmp_path):
+    """Test that QDP commands are case-insensitive."""
+    # Test with lowercase commands
+    example_qdp_lowercase = """
+        ! Test case-insensitive commands
+        read serr 1 2
+        1 0.5 1 0.5
+        2 1.0 2 1.0
+        """
+    
+    # Test with mixed case commands
+    example_qdp_mixedcase = """
+        ! Test case-insensitive commands
+        Read Terr 1
+        Read Serr 2
+        1 0.5 -0.3 2 1.0
+        2 1.0 -0.6 3 1.5
+        """
+    
+    test_file_lower = tmp_path / "test_lower.qdp"
+    test_file_mixed = tmp_path / "test_mixed.qdp"
+    
+    # Test lowercase commands
+    with open(test_file_lower, "w") as fp:
+        print(example_qdp_lowercase, file=fp)
+    
+    table_lower = _read_table_qdp(test_file_lower, table_id=0)
+    assert len(table_lower) == 2
+    assert len(table_lower.colnames) == 4  # 2 data columns + 2 error columns
+    assert "col1_err" in table_lower.colnames
+    assert "col2_err" in table_lower.colnames
+    assert table_lower["col1"][0] == 1
+    assert table_lower["col1_err"][0] == 0.5
+    
+    # Test mixed case commands
+    with open(test_file_mixed, "w") as fp:
+        print(example_qdp_mixedcase, file=fp)
+    
+    table_mixed = _read_table_qdp(test_file_mixed, table_id=0)
+    assert len(table_mixed) == 2
+    assert len(table_mixed.colnames) == 5  # 2 data columns + 2 terr columns + 1 serr column
+    assert "col1_perr" in table_mixed.colnames
+    assert "col1_nerr" in table_mixed.colnames
+    assert "col2_err" in table_mixed.colnames
+    assert table_mixed["col1"][0] == 1
+    assert table_mixed["col1_perr"][0] == 0.5
+    assert table_mixed["col1_nerr"][0] == -0.3
+    assert table_mixed["col2_err"][0] == 1.0
