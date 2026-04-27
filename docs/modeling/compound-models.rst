@@ -20,8 +20,20 @@ possible to create a superposition of two Gaussians like so::
     >>> g2 = models.Gaussian1D(2.5, 0.5, 0.1)
     >>> g1_plus_2 = g1 + g2
 
-The resulting object ``g1_plus_2`` is itself a new model.  Evaluating, say,
-``g1_plus_2(0.25)`` is the same as evaluating ``g1(0.25) + g2(0.25)``::
+The resulting object ``g1_plus_2`` is itself a new model.
+
+.. note::
+    The model ``g1_plus_2`` is a `~astropy.modeling.CompoundModel` which contains
+    the models ``g1`` and ``g2`` without any parameter duplication. Meaning changes
+    to the parameters of ``g1_plus_2`` will effect the parameters of ``g1`` or ``g2``
+    and vice versa; if one does not want this to occur one can copy the models prior
+    to adding them using the ``.copy()`` method ``g1.copy() + g2.copy()``. In
+    general applies to any `~astropy.modeling.CompoundModel` constructed using a
+    binary operation, so that `~astropy.modeling.CompoundModel` follows the Python
+    convention for construction of container objects. For more information on this
+    please see the `API Changes in astropy.modeling <https://docs.astropy.org/en/v4.0.x/whatsnew/4.0.html#whatsnew-4-0-modeling-api>`__
+
+Evaluating, say, ``g1_plus_2(0.25)`` is the same as evaluating ``g1(0.25) + g2(0.25)``::
 
     >>> g1_plus_2(0.25)  # doctest: +FLOAT_CMP
     0.5676756958301329
@@ -42,11 +54,11 @@ These new compound models can also be fitted to data, like most other models
     from astropy.modeling import models, fitting
 
     # Generate fake data
-    np.random.seed(42)
+    rng = np.random.default_rng(seed=42)
     g1 = models.Gaussian1D(1, 0, 0.2)
     g2 = models.Gaussian1D(2.5, 0.5, 0.1)
     x = np.linspace(-1, 1, 200)
-    y = g1(x) + g2(x) + np.random.normal(0., 0.2, x.shape)
+    y = g1(x) + g2(x) + rng.normal(0., 0.2, x.shape)
 
     # Now to fit the data create a new superposition with initial
     # guesses for the parameters:

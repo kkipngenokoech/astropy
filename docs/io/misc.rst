@@ -43,6 +43,12 @@ Documentation on the ASDF Standard can be found `here
 module can be found `here <https://asdf.readthedocs.io>`__. Additional details
 for Astropy developers can be found in :ref:`asdf_dev`.
 
+.. note::
+   ``astropy.io.misc.asdf`` is being replaced by the **asdf-astropy** package.
+   It is recommended that you install this package if you wish to use **ASDF**
+   with ``astropy``. The documentation for **asdf-astropy** can be found
+   :ref:`asdf-astropy:asdf-astropy`.
+
 .. _asdf_io:
 
 Using ASDF With Table I/O
@@ -251,7 +257,7 @@ object in ``astropy.modeling.functional_models``. The basic model parameters
 are handled in the ``to_tree_transform`` and ``from_tree_transform`` of the
 base ``TransformType`` class, while model-specific parameters are handled here
 in ``MyModelType``. Since this model can take units and quantities with input
-parameters, the imported``_parameter_to_value`` allows this to flexibly work
+parameters, the imported ``_parameter_to_value`` allows this to flexibly work
 with both basic numeric values as well as quantities.
 
 

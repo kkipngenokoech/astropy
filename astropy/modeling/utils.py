@@ -3,19 +3,20 @@
 """
 This module provides utility functions for the models package.
 """
+import warnings
+
 # pylint: disable=invalid-name
 from collections import UserDict
 from collections.abc import MutableMapping
 from inspect import signature
 
 import numpy as np
-import warnings
 
 from astropy import units as u
 from astropy.utils.decorators import deprecated
 
-__doctest_skip__ = ['AliasDict']
-__all__ = ['AliasDict', 'poly_map_domain', 'comb', 'ellipse_extent']
+__doctest_skip__ = ["AliasDict"]
+__all__ = ["AliasDict", "poly_map_domain", "comb", "ellipse_extent"]
 
 
 deprecation_msg = """
@@ -24,7 +25,7 @@ inside astropy.
 """
 
 
-@deprecated('5.0', deprecation_msg)
+@deprecated("5.0", deprecation_msg)
 class AliasDict(MutableMapping):
     """
     Creates a `dict` like object that wraps an existing `dict` or other
@@ -179,9 +180,9 @@ def make_binary_operator_eval(oper, f, g):
     (30,)
     """
 
-    return lambda inputs, params: \
-            tuple(oper(x, y) for x, y in zip(f(inputs, params),
-                                             g(inputs, params)))
+    return lambda inputs, params: tuple(
+        oper(x, y) for x, y in zip(f(inputs, params), g(inputs, params))
+    )
 
 
 def poly_map_domain(oldx, domain, window):
@@ -208,12 +209,13 @@ def poly_map_domain(oldx, domain, window):
 
 def _validate_domain_window(value):
     if value is not None:
-        if np.asanyarray(value).shape != (2, ):
-            raise ValueError('domain and window should be tuples of size 2.')
+        if np.asanyarray(value).shape != (2,):
+            raise ValueError("domain and window should be tuples of size 2.")
         return tuple(value)
     return value
 
 
+@deprecated("5.3", alternative="math.comb")
 def comb(N, k):
     """
     The number of combinations of N things taken k at a time.
@@ -238,8 +240,8 @@ def array_repr_oneline(array):
     """
     Represents a multi-dimensional Numpy array flattened onto a single line.
     """
-    r = np.array2string(array, separator=', ', suppress_small=True)
-    return ' '.join(l.strip() for l in r.splitlines())
+    r = np.array2string(array, separator=", ", suppress_small=True)
+    return " ".join(line.strip() for line in r.splitlines())
 
 
 def combine_labels(left, right):
@@ -253,25 +255,28 @@ def combine_labels(left, right):
     """
 
     if set(left).intersection(right):
-        left = tuple(l + '0' for l in left)
-        right = tuple(r + '1' for r in right)
+        left = tuple(label + "0" for label in left)
+        right = tuple(label + "1" for label in right)
 
     return left + right
 
 
 def ellipse_extent(a, b, theta):
     """
-    Calculates the extent of a box encapsulating a rotated 2D ellipse.
+    Calculates the half size of a box encapsulating a rotated 2D
+    ellipse.
 
     Parameters
     ----------
     a : float or `~astropy.units.Quantity`
-        Major axis.
+        The ellipse semimajor axis.
     b : float or `~astropy.units.Quantity`
-        Minor axis.
+        The ellipse semiminor axis.
     theta : float or `~astropy.units.Quantity` ['angle']
-        Rotation angle. If given as a floating-point value, it is assumed to be
-        in radians.
+        The rotation angle as an angular quantity
+        (`~astropy.units.Quantity` or `~astropy.coordinates.Angle`) or
+        a value in radians (as a float). The rotation angle increases
+        counterclockwise.
 
     Returns
     -------
@@ -294,14 +299,11 @@ def ellipse_extent(a, b, theta):
         y0 = 50
         a = 30
         b = 10
-        theta = np.pi/4
+        theta = np.pi / 4
 
         model = Ellipse2D(amplitude, x0, y0, a, b, theta)
-
         dx, dy = ellipse_extent(a, b, theta)
-
         limits = [x0 - dx, x0 + dx, y0 - dy, y0 + dy]
-
         model.bounding_box = limits
 
         image = render_model(model)
@@ -310,6 +312,13 @@ def ellipse_extent(a, b, theta):
                   extent = limits)
         plt.show()
     """
+    from .parameters import Parameter  # prevent circular import
+
+    if isinstance(theta, Parameter):
+        if theta.quantity is None:
+            theta = theta.value
+        else:
+            theta = theta.quantity
 
     t = np.arctan2(-b * np.tan(theta), a)
     dx = a * np.cos(t) * np.cos(theta) - b * np.sin(t) * np.sin(theta)
@@ -318,7 +327,7 @@ def ellipse_extent(a, b, theta):
     dy = b * np.sin(t) * np.cos(theta) + a * np.cos(t) * np.sin(theta)
 
     if isinstance(dx, u.Quantity) or isinstance(dy, u.Quantity):
-        return np.abs(u.Quantity([dx, dy]))
+        return np.abs(u.Quantity([dx, dy], subok=True))
     return np.abs([dx, dy])
 
 
@@ -366,14 +375,14 @@ def _combine_equivalency_dict(keys, eq1=None, eq2=None):
 
 
 def _to_radian(value):
-    """ Convert ``value`` to radian. """
+    """Convert ``value`` to radian."""
     if isinstance(value, u.Quantity):
         return value.to(u.rad)
     return np.deg2rad(value)
 
 
 def _to_orig_unit(value, raw_unit=None, orig_unit=None):
-    """ Convert value with ``raw_unit`` to ``orig_unit``. """
+    """Convert value with ``raw_unit`` to ``orig_unit``."""
     if raw_unit is not None:
         return (value * raw_unit).to(orig_unit)
     return np.rad2deg(value)
@@ -384,6 +393,7 @@ class _ConstraintsDict(UserDict):
     Wrapper around UserDict to allow updating the constraints
     on a Parameter when the dictionary is updated.
     """
+
     def __init__(self, model, constraint_type):
         self._model = model
         self.constraint_type = constraint_type
@@ -432,13 +442,15 @@ class _SpecialOperatorsDict(UserDict):
 
     def __setitem__(self, key, val):
         self._set_value(key, val)
-        warnings.warn(DeprecationWarning(
-            """
+        warnings.warn(
+            DeprecationWarning(
+                """
             Special operator dictionary assignment has been deprecated.
             Please use `.add` instead, so that you can capture a unique
             key for your operator.
             """
-        ))
+            )
+        )
 
     def _get_unique_id(self):
         self._unique_id += 1

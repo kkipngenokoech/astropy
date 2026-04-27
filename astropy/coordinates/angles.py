@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 """
@@ -6,22 +5,23 @@ This module contains the fundamental classes used for representing
 coordinates in astropy.
 """
 
-import warnings
+import functools
 from collections import namedtuple
 
 import numpy as np
 
-from . import angle_formats as form
 from astropy import units as u
 from astropy.utils import isiterable
 
-__all__ = ['Angle', 'Latitude', 'Longitude']
+from . import angle_formats as form
+
+__all__ = ["Angle", "Latitude", "Longitude"]
 
 
 # these are used by the `hms` and `dms` attributes
-hms_tuple = namedtuple('hms_tuple', ('h', 'm', 's'))
-dms_tuple = namedtuple('dms_tuple', ('d', 'm', 's'))
-signed_dms_tuple = namedtuple('signed_dms_tuple', ('sign', 'd', 'm', 's'))
+hms_tuple = namedtuple("hms_tuple", ("h", "m", "s"))
+dms_tuple = namedtuple("dms_tuple", ("d", "m", "s"))
+signed_dms_tuple = namedtuple("signed_dms_tuple", ("sign", "d", "m", "s"))
 
 
 class Angle(u.SpecificTypeQuantity):
@@ -33,8 +33,8 @@ class Angle(u.SpecificTypeQuantity):
     :class:`~astropy.coordinates.Angle`.
 
     The input parser is flexible and supports a variety of formats.
-    The examples below illustrate common ways of initializing an `Angle`
-    object. First some imports::
+    The examples below illustrate common ways of initializing an
+    `~astropy.coordinates.Angle` object. First some imports::
 
       >>> from astropy.coordinates import Angle
       >>> from astropy import units as u
@@ -69,10 +69,6 @@ class Angle(u.SpecificTypeQuantity):
       <Angle 1.04166667 hourangle>
       >>> Angle('-1:2.5', unit=u.deg)
       <Angle -1.04166667 deg>
-      >>> Angle((10, 11, 12), unit='hourangle')  # (h, m, s)
-      <Angle 10.18666667 hourangle>
-      >>> Angle((-1, 2, 3), unit=u.deg)  # (d, m, s)
-      <Angle -1.03416667 deg>
       >>> Angle(10.2345 * u.deg)
       <Angle 10.2345 deg>
       >>> Angle(Angle(10.2345 * u.deg))
@@ -80,7 +76,7 @@ class Angle(u.SpecificTypeQuantity):
 
     Parameters
     ----------
-    angle : `~numpy.array`, scalar, `~astropy.units.Quantity`, :class:`~astropy.coordinates.Angle`
+    angle : `~numpy.array`, scalar, `~astropy.units.Quantity`, `~astropy.coordinates.Angle`
         The angle value. If a tuple, will be interpreted as ``(h, m,
         s)`` or ``(d, m, s)`` depending on ``unit``. If a string, it
         will be interpreted following the rules described above.
@@ -106,11 +102,11 @@ class Angle(u.SpecificTypeQuantity):
     `~astropy.units.UnitsError`
         If a unit is not provided or it is not an angular unit.
     """
+
     _equivalent_unit = u.radian
     _include_easy_conversion_members = True
 
-    def __new__(cls, angle, unit=None, dtype=None, copy=True, **kwargs):
-
+    def __new__(cls, angle, unit=None, dtype=np.inexact, copy=True, **kwargs):
         if not isinstance(angle, u.Quantity):
             if unit is not None:
                 unit = cls._convert_unit_to_angle_unit(u.Unit(unit))
@@ -124,19 +120,26 @@ class Angle(u.SpecificTypeQuantity):
                     angle_unit = unit
 
                 if isinstance(angle, tuple):
-                    angle = cls._tuple_to_float(angle, angle_unit)
+                    if angle_unit == u.hourangle:
+                        form._check_hour_range(angle[0])
+                    form._check_minute_range(angle[1])
+                    a = np.abs(angle[0]) + angle[1] / 60.0
+                    if len(angle) == 3:
+                        form._check_second_range(angle[2])
+                        a += angle[2] / 3600.0
+
+                    angle = np.copysign(a, angle[0])
 
                 if angle_unit is not unit:
                     # Possible conversion to `unit` will be done below.
                     angle = u.Quantity(angle, angle_unit, copy=False)
 
-            elif (isiterable(angle) and
-                  not (isinstance(angle, np.ndarray) and
-                       angle.dtype.kind not in 'SUVO')):
+            elif isiterable(angle) and not (
+                isinstance(angle, np.ndarray) and angle.dtype.kind not in "SUVO"
+            ):
                 angle = [Angle(x, unit, copy=False) for x in angle]
 
-        return super().__new__(cls, angle, unit, dtype=dtype, copy=copy,
-                               **kwargs)
+        return super().__new__(cls, angle, unit, dtype=dtype, copy=copy, **kwargs)
 
     @staticmethod
     def _tuple_to_float(angle, unit):
@@ -154,7 +157,7 @@ class Angle(u.SpecificTypeQuantity):
 
     @staticmethod
     def _convert_unit_to_angle_unit(unit):
-        return u.hourangle if unit is u.hour else unit
+        return u.hourangle if unit == u.hour else unit
 
     def _set_unit(self, unit):
         super()._set_unit(self._convert_unit_to_angle_unit(unit))
@@ -192,13 +195,22 @@ class Angle(u.SpecificTypeQuantity):
         This is primarily intended for use with `dms` to generate string
         representations of coordinates that are correct for negative angles.
         """
-        return signed_dms_tuple(np.sign(self.degree),
-                                *form.degrees_to_dms(np.abs(self.degree)))
+        return signed_dms_tuple(
+            np.sign(self.degree), *form.degrees_to_dms(np.abs(self.degree))
+        )
 
-    def to_string(self, unit=None, decimal=False, sep='fromunit',
-                  precision=None, alwayssign=False, pad=False,
-                  fields=3, format=None):
-        """ A string representation of the angle.
+    def to_string(
+        self,
+        unit=None,
+        decimal=False,
+        sep="fromunit",
+        precision=None,
+        alwayssign=False,
+        pad=False,
+        fields=3,
+        format=None,
+    ):
+        """A string representation of the angle.
 
         Parameters
         ----------
@@ -208,8 +220,10 @@ class Angle(u.SpecificTypeQuantity):
             used.
 
         decimal : bool, optional
-            If `True`, a decimal representation will be used, otherwise
-            the returned string will be in sexagesimal form.
+            If `False`, the returned string will be in sexagesimal form
+            if possible (for units of degrees or hourangle).  If `True`,
+            a decimal representation will be used. In that case, no unit
+            will be appended if ``format`` is not explicitly given.
 
         sep : str, optional
             The separator between numbers in a sexagesimal
@@ -252,6 +266,9 @@ class Angle(u.SpecificTypeQuantity):
 
             - 'latex': Return a LaTeX-formatted string
 
+            - 'latex_inline': Return a LaTeX-formatted string which is the
+              same as with ``format='latex'`` for |Angle| instances
+
             - 'unicode': Return a string containing non-ASCII unicode
               characters, such as the degree symbol
 
@@ -261,7 +278,6 @@ class Angle(u.SpecificTypeQuantity):
             A string representation of the angle. If the angle is an array, this
             will be an array with a unicode dtype.
 
-
         """
         if unit is None:
             unit = self.unit
@@ -269,100 +285,63 @@ class Angle(u.SpecificTypeQuantity):
             unit = self._convert_unit_to_angle_unit(u.Unit(unit))
 
         separators = {
-            None: {
-                u.degree: 'dms',
-                u.hourangle: 'hms'},
-            'latex': {
-                u.degree: [r'^\circ', r'{}^\prime', r'{}^{\prime\prime}'],
-                u.hourangle: [r'^{\mathrm{h}}', r'^{\mathrm{m}}', r'^{\mathrm{s}}']},
-            'unicode': {
-                u.degree: '°′″',
-                u.hourangle: 'ʰᵐˢ'}
+            "generic": {u.degree: "dms", u.hourangle: "hms"},
+            "latex": {
+                u.degree: [r"^\circ", r"{}^\prime", r"{}^{\prime\prime}"],
+                u.hourangle: [r"^{\mathrm{h}}", r"^{\mathrm{m}}", r"^{\mathrm{s}}"],
+            },
+            "unicode": {u.degree: "°′″", u.hourangle: "ʰᵐˢ"},
         }
-
-        if sep == 'fromunit':
-            if format not in separators:
-                raise ValueError(f"Unknown format '{format}'")
-            seps = separators[format]
-            if unit in seps:
-                sep = seps[unit]
+        # 'latex_inline' provides no functionality beyond what 'latex' offers,
+        # but it should be implemented to avoid ValueErrors in user code.
+        separators["latex_inline"] = separators["latex"]
+        # Default separators are as for generic.
+        separators[None] = separators["generic"]
 
         # Create an iterator so we can format each element of what
         # might be an array.
-        if unit is u.degree:
-            if decimal:
-                values = self.degree
-                if precision is not None:
-                    func = ("{0:0." + str(precision) + "f}").format
-                else:
-                    func = '{:g}'.format
-            else:
-                if sep == 'fromunit':
-                    sep = 'dms'
-                values = self.degree
-                func = lambda x: form.degrees_to_string(
-                    x, precision=precision, sep=sep, pad=pad,
-                    fields=fields)
-
-        elif unit is u.hourangle:
-            if decimal:
-                values = self.hour
-                if precision is not None:
-                    func = ("{0:0." + str(precision) + "f}").format
-                else:
-                    func = '{:g}'.format
-            else:
-                if sep == 'fromunit':
-                    sep = 'hms'
-                values = self.hour
-                func = lambda x: form.hours_to_string(
-                    x, precision=precision, sep=sep, pad=pad,
-                    fields=fields)
-
-        elif unit.is_equivalent(u.radian):
-            if decimal:
-                values = self.to_value(unit)
-                if precision is not None:
-                    func = ("{0:1." + str(precision) + "f}").format
-                else:
-                    func = "{:g}".format
-            elif sep == 'fromunit':
-                values = self.to_value(unit)
-                unit_string = unit.to_string(format=format)
-                if format == 'latex':
-                    unit_string = unit_string[1:-1]
-
-                if precision is not None:
-                    def plain_unit_format(val):
-                        return ("{0:0." + str(precision) + "f}{1}").format(
-                            val, unit_string)
-                    func = plain_unit_format
-                else:
-                    def plain_unit_format(val):
-                        return f"{val:g}{unit_string}"
-                    func = plain_unit_format
-            else:
-                raise ValueError(
-                    f"'{unit.name}' can not be represented in sexagesimal notation")
-
+        if not decimal and (unit_is_deg := unit == u.degree or unit == u.hourangle):
+            # Sexagesimal.
+            if sep == "fromunit":
+                if format not in separators:
+                    raise ValueError(f"Unknown format '{format}'")
+                sep = separators[format][unit]
+            func = functools.partial(
+                form.degrees_to_string if unit_is_deg else form.hours_to_string,
+                precision=precision,
+                sep=sep,
+                pad=pad,
+                fields=fields,
+            )
         else:
-            raise u.UnitsError(
-                "The unit value provided is not an angular unit.")
+            if sep != "fromunit":
+                raise ValueError(
+                    f"'{unit}' can not be represented in sexagesimal notation"
+                )
+            func = ("{:g}" if precision is None else f"{{0:0.{precision}f}}").format
+            # Don't add unit by default for decimal.
+            if not (decimal and format is None):
+                unit_string = unit.to_string(format=format)
+                if format == "latex" or format == "latex_inline":
+                    unit_string = unit_string[1:-1]
+                format_func = func
+                func = lambda x: format_func(x) + unit_string
 
         def do_format(val):
             # Check if value is not nan to avoid ValueErrors when turning it into
             # a hexagesimal string.
             if not np.isnan(val):
                 s = func(float(val))
-                if alwayssign and not s.startswith('-'):
-                    s = '+' + s
-                if format == 'latex':
-                    s = f'${s}$'
+                if alwayssign and not s.startswith("-"):
+                    s = "+" + s
+                if format == "latex" or format == "latex_inline":
+                    s = f"${s}$"
                 return s
             s = f"{val}"
             return s
 
-        format_ufunc = np.vectorize(do_format, otypes=['U'])
+        values = self.to_value(unit)
+        format_ufunc = np.vectorize(do_format, otypes=["U"])
         result = format_ufunc(values)
 
         if result.ndim == 0:
@@ -383,17 +362,15 @@ class Angle(u.SpecificTypeQuantity):
         self_angle = self.view(np.ndarray)
         # Do the wrapping, but only if any angles need to be wrapped
         #
-        # This invalid catch block is needed both for the floor division
-        # and for the comparisons later on (latter not really needed
-        # any more for >= 1.19 (NUMPY_LT_1_19), but former is).
-        with np.errstate(invalid='ignore'):
+        # Catch any invalid warnings from the floor division.
+        with np.errstate(invalid="ignore"):
             wraps = (self_angle - wrap_angle_floor) // a360
-            np.nan_to_num(wraps, copy=False)
-            if np.any(wraps != 0):
-                self_angle -= wraps*a360
-                # Rounding errors can cause problems.
-                self_angle[self_angle >= wrap_angle] -= a360
-                self_angle[self_angle < wrap_angle_floor] += a360
+        valid = np.isfinite(wraps) & (wraps != 0)
+        if np.any(valid):
+            self_angle -= wraps * a360
+            # Rounding errors can cause problems.
+            self_angle[self_angle >= wrap_angle] -= a360
+            self_angle[self_angle < wrap_angle_floor] += a360
 
     def wrap_at(self, wrap_angle, inplace=False):
         """
@@ -489,13 +466,13 @@ class Angle(u.SpecificTypeQuantity):
         def formatter(x):
             return x.to_string(format=format)
 
-        return np.array2string(self, formatter={'all': formatter})
+        return np.array2string(self, formatter={"all": formatter})
 
     def __str__(self):
         return self._str_helper()
 
     def _repr_latex_(self):
-        return self._str_helper(format='latex')
+        return self._str_helper(format="latex")
 
 
 def _no_angle_subclass(obj):
@@ -556,6 +533,7 @@ class Latitude(Angle):
     `TypeError`
         If the angle parameter is an instance of :class:`~astropy.coordinates.Longitude`.
     """
+
     def __new__(cls, angle, unit=None, **kwargs):
         # Forbid creating a Lat from a Long.
         if isinstance(angle, Longitude):
@@ -574,16 +552,22 @@ class Latitude(Angle):
         # objects, for speed.
         if angles is None:
             angles = self
-        lower = u.degree.to(angles.unit, -90.0)
-        upper = u.degree.to(angles.unit, 90.0)
-        # This invalid catch block can be removed when the minimum numpy
-        # version is >= 1.19 (NUMPY_LT_1_19)
-        with np.errstate(invalid='ignore'):
-            invalid_angles = (np.any(angles.value < lower) or
-                              np.any(angles.value > upper))
+
+        # For speed, compare using "is", which is not strictly guaranteed to hold,
+        # but if it doesn't we'll just convert correctly in the 'else' clause.
+        if angles.unit is u.deg:
+            limit = 90
+        elif angles.unit is u.rad:
+            limit = self.dtype.type(0.5 * np.pi)
+        else:
+            limit = u.degree.to(angles.unit, 90.0)
+
+        invalid_angles = np.any(angles.value < -limit) or np.any(angles.value > limit)
         if invalid_angles:
-            raise ValueError('Latitude angle(s) must be within -90 deg <= angle <= 90 deg, '
-                             'got {}'.format(angles.to(u.degree)))
+            raise ValueError(
+                "Latitude angle(s) must be within -90 deg <= angle <= 90 deg, "
+                f"got {angles.to(u.degree)}"
+            )
 
     def __setitem__(self, item, value):
         # Forbid assigning a Long to a Lat.
@@ -601,7 +585,7 @@ class Latitude(Angle):
 
 
 class LongitudeInfo(u.QuantityInfo):
-    _represent_as_dict_attrs = u.QuantityInfo._represent_as_dict_attrs + ('wrap_angle',)
+    _represent_as_dict_attrs = u.QuantityInfo._represent_as_dict_attrs + ("wrap_angle",)
 
 
 class Longitude(Angle):
@@ -665,11 +649,12 @@ class Longitude(Angle):
     def __new__(cls, angle, unit=None, wrap_angle=None, **kwargs):
         # Forbid creating a Long from a Lat.
         if isinstance(angle, Latitude):
-            raise TypeError("A Longitude angle cannot be created from "
-                            "a Latitude angle.")
+            raise TypeError(
+                "A Longitude angle cannot be created from a Latitude angle."
+            )
         self = super().__new__(cls, angle, unit=unit, **kwargs)
         if wrap_angle is None:
-            wrap_angle = getattr(angle, 'wrap_angle', self._default_wrap_angle)
+            wrap_angle = getattr(angle, "wrap_angle", self._default_wrap_angle)
         self.wrap_angle = wrap_angle  # angle-like b/c property setter
         return self
 
@@ -691,8 +676,7 @@ class Longitude(Angle):
 
     def __array_finalize__(self, obj):
         super().__array_finalize__(obj)
-        self._wrap_angle = getattr(obj, '_wrap_angle',
-                                   self._default_wrap_angle)
+        self._wrap_angle = getattr(obj, "_wrap_angle", self._default_wrap_angle)
 
     # Any calculation should drop to Angle
     def __array_ufunc__(self, *args, **kwargs):

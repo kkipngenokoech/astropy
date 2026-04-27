@@ -9,16 +9,15 @@ Before integration into Astropy it was known as
 (INAF - Istituto Nazionale di Astrofisica).
 """
 
+from astropy import config as _config
+
+from .client import *
 from .constants import *
 from .errors import *
-from .utils import *
 from .hub import *
-from .client import *
-from .integrated_client import *
 from .hub_proxy import *
-
-
-from astropy import config as _config
+from .integrated_client import *
+from .utils import *
 
 
 class Conf(_config.ConfigNamespace):
@@ -28,12 +27,13 @@ class Conf(_config.ConfigNamespace):
 
     use_internet = _config.ConfigItem(
         True,
-        "Whether to allow `astropy.samp` to use "
-        "the internet, if available.",
-        aliases=['astropy.samp.utils.use_internet'])
+        "Whether to allow `astropy.samp` to use the internet, if available.",
+        aliases=["astropy.samp.utils.use_internet"],
+    )
 
-    n_retries = _config.ConfigItem(10,
-        "How many times to retry communications when they fail")
+    n_retries = _config.ConfigItem(
+        10, "How many times to retry communications when they fail"
+    )
 
 
 conf = Conf()
