@@ -205,12 +205,11 @@ To use a kernel, first create a specific instance of the kernel::
 retrieved with::
 
     >>> gauss.array  # doctest: +FLOAT_CMP
-    array([6.69151129e-05, 4.36341348e-04, 2.21592421e-03,
-           8.76415025e-03, 2.69954833e-02, 6.47587978e-02,
-           1.20985362e-01, 1.76032663e-01, 1.99471140e-01,
-           1.76032663e-01, 1.20985362e-01, 6.47587978e-02,
-           2.69954833e-02, 8.76415025e-03, 2.21592421e-03,
-           4.36341348e-04, 6.69151129e-05])
+    array([6.69162896e-05, 4.36349021e-04, 2.21596317e-03, 8.76430436e-03,
+           2.69959580e-02, 6.47599366e-02, 1.20987490e-01, 1.76035759e-01,
+           1.99474648e-01, 1.76035759e-01, 1.20987490e-01, 6.47599366e-02,
+           2.69959580e-02, 8.76430436e-03, 2.21596317e-03, 4.36349021e-04,
+           6.69162896e-05])
 
 The kernel can then be used directly when calling
 :func:`~astropy.convolution.convolve`:
@@ -226,8 +225,9 @@ The kernel can then be used directly when calling
     plt.figure(3).clf()
 
     # Generate fake data
+    rng = np.random.default_rng(963)
     x = np.arange(1000).astype(float)
-    y = np.sin(x / 100.) + np.random.normal(0., 1., x.shape)
+    y = np.sin(x / 100.) + rng.normal(0., 1., x.shape)
     y[::3] = np.nan
 
     # Create kernel
@@ -374,7 +374,8 @@ eye.
    hdu = fits.open(filename)[0]
    img = hdu.data[50:90, 60:100] * 1e5
 
-   indices = np.random.randint(low=0, high=img.size, size=300)
+   rng = np.random.default_rng(1379)
+   indices = rng.integers(low=0, high=img.size, size=300)
 
    sampled_data = img.flat[indices]
 
@@ -438,5 +439,3 @@ Reference/API
 
 .. automodapi:: astropy.convolution
     :no-inheritance-diagram:
-    :skip: MexicanHat1DKernel
-    :skip: MexicanHat2DKernel

@@ -128,14 +128,16 @@ of different data types to initialize a table::
   >>> a = (1., 4.)
   >>> b = np.array([[2, 3], [5, 6]], dtype=np.int64)  # vector column
   >>> c = Column(['x', 'y'], name='axis')
-  >>> arr = (a, b, c)
-  >>> Table(arr)
-  <Table length=2>
-    col0  col1 [2] axis
-  float64  int64   str1
-  ------- -------- ----
-      1.0   2 .. 3    x
-      4.0   5 .. 6    y
+  >>> d = u.Quantity([([1., 2., 3.], [.1, .2, .3]),
+  ...                 ([4., 5., 6.], [.4, .5, .6])], 'm,m/s')
+  >>> QTable([a, b, c, d])
+  <QTable length=2>
+    col0    col1   axis          col3 [f0, f1]
+                                    (m, m / s)
+  float64 int64[2] str1     (float64[3], float64[3])
+  ------- -------- ---- -------------------------------
+      1.0   2 .. 3    x ([1., 2., 3.], [0.1, 0.2, 0.3])
+      4.0   5 .. 6    y ([4., 5., 6.], [0.4, 0.5, 0.6])
 
 Notice that in the third column the existing column name ``'axis'`` is used.
 
@@ -181,11 +183,11 @@ object::
   ...        'c': Column(['x', 'y'], name='axis')}
   >>> Table(arr, names=('a', 'b', 'c'))
   <Table length=2>
-    a   b [2]   c
-  float64 int64  str1
-  ------- ------ ----
-      1.0 2 .. 3    x
-      4.0 5 .. 6    y
+     a       b      c
+  float64 int64[2] str1
+  ------- -------- ----
+      1.0   2 .. 3    x
+      4.0   5 .. 6    y
 
 Notice that the key ``'c'`` takes precedence over the existing column name
 ``'axis'`` in the third column. Also see that the ``'b'`` column is a vector
@@ -334,6 +336,32 @@ print the table to see what we made. In real code you might do something like::
   --- --- ---
     1 2.0   x
     4 5.0   y
+
+.. _structured-array-as-a-column:
+
+Structured Array as a Column
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In some cases it is convenient to include a structured array as a single column
+in a table. The `~astropy.coordinates.EarthLocation` class is one case in
+astropy where this is done, where the structured column has three elements
+``x``, ``y`` and ``z``. Another example would be a modeling parameter that has a
+value, a minimum allowed value and a maximum allowed value. Here we demonstrate
+including the simple structured array defined previously as a column::
+
+  >>> table = Table()
+  >>> table['name'] = ['Micah', 'Mazzy']
+  >>> table['arr'] = arr
+  >>> print(table)
+   name arr [a, b, c]
+  ----- -------------
+  Micah  (1, 2., 'x')
+  Mazzy  (4, 5., 'y')
+
+You can access or print a single field in the structured column as follows::
+
+  >>> print(table['arr']['b'])
+  [2. 5.]
 
 **New column names**
 
@@ -915,7 +943,9 @@ work.
 .. EXAMPLE START: Initialization Options for Column Objects
 
 The greatest flexibility can be achieved by setting a formatting function. This
-function must accept a single argument (the value) and return a string. In the
+function must accept a single argument (the value) and return a string. One
+caveat is that such a format function cannot be saved to file and you will get
+an exception if you attempt to do so. In the
 following example this is used to make a LaTeX ready output::
 
     >>> t = Table([[1,2],[1.234e9,2.34e-12]], names = ('a','b'))
@@ -938,6 +968,14 @@ following example this is used to make a LaTeX ready output::
     \end{table}
 
 .. EXAMPLE END
+
+**Format string for structured array column**
+
+For columns which are structured arrays, the format string must be a a string
+that uses  `"new style" format strings
+<https://docs.python.org/3/library/string.html#format-string-syntax>`_ with
+parameter substitutions corresponding to the field names in the structured
+array. See :ref:`format_stuctured_array_columns` for an example.
 
 TableColumns
 ------------

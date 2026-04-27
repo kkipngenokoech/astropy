@@ -11,10 +11,8 @@ via these methods.
 import copy
 from collections.abc import Mapping
 
-import numpy as np
-
-from astropy.cosmology.core import _COSMOLOGY_CLASSES, Cosmology
 from astropy.cosmology.connect import convert_registry
+from astropy.cosmology.core import _COSMOLOGY_CLASSES, Cosmology
 
 __all__ = []  # nothing is publicly scoped
 
@@ -57,7 +55,7 @@ def from_mapping(map, *, move_to_meta=False, cosmology=None):
         >>> from astropy.cosmology import Cosmology, Planck18
         >>> cm = Planck18.to_format('mapping')
         >>> cm
-        {'cosmology': <class 'astropy.cosmology.flrw.FlatLambdaCDM'>,
+        {'cosmology': <class 'astropy.cosmology.flrw.lambdacdm.FlatLambdaCDM'>,
          'name': 'Planck18', 'H0': <Quantity 67.66 km / (Mpc s)>, 'Om0': 0.30966,
          'Tcmb0': <Quantity 2.7255 K>, 'Neff': 3.046,
          'm_nu': <Quantity [0. , 0. , 0.06] eV>, 'Ob0': 0.04897,
@@ -116,7 +114,9 @@ def from_mapping(map, *, move_to_meta=False, cosmology=None):
     return cosmology(*ba.args, **ba.kwargs)
 
 
-def to_mapping(cosmology, *args, cls=dict, cosmology_as_str=False, move_from_meta=False):
+def to_mapping(
+    cosmology, *args, cls=dict, cosmology_as_str=False, move_from_meta=False
+):
     """Return the cosmology class, parameters, and metadata as a `dict`.
 
     Parameters
@@ -152,7 +152,7 @@ def to_mapping(cosmology, *args, cls=dict, cosmology_as_str=False, move_from_met
 
         >>> from astropy.cosmology import Planck18
         >>> Planck18.to_format('mapping')
-        {'cosmology': <class 'astropy.cosmology.flrw.FlatLambdaCDM'>,
+        {'cosmology': <class 'astropy.cosmology.flrw.lambdacdm.FlatLambdaCDM'>,
          'name': 'Planck18', 'H0': <Quantity 67.66 km / (Mpc s)>, 'Om0': 0.30966,
          'Tcmb0': <Quantity 2.7255 K>, 'Neff': 3.046,
          'm_nu': <Quantity [0.  , 0.  , 0.06] eV>, 'Ob0': 0.04897,
@@ -162,7 +162,7 @@ def to_mapping(cosmology, *args, cls=dict, cosmology_as_str=False, move_from_met
 
         >>> from collections import OrderedDict
         >>> Planck18.to_format('mapping', cls=OrderedDict)
-        OrderedDict([('cosmology', <class 'astropy.cosmology.flrw.FlatLambdaCDM'>),
+        OrderedDict([('cosmology', <class 'astropy.cosmology.flrw.lambdacdm.FlatLambdaCDM'>),
           ('name', 'Planck18'), ('H0', <Quantity 67.66 km / (Mpc s)>),
           ('Om0', 0.30966), ('Tcmb0', <Quantity 2.7255 K>), ('Neff', 3.046),
           ('m_nu', <Quantity [0.  , 0.  , 0.06] eV>), ('Ob0', 0.04897),
@@ -183,7 +183,7 @@ def to_mapping(cosmology, *args, cls=dict, cosmology_as_str=False, move_from_met
 
         >>> from astropy.cosmology import Planck18
         >>> Planck18.to_format('mapping', move_from_meta=True)
-        {'cosmology': <class 'astropy.cosmology.flrw.FlatLambdaCDM'>,
+        {'cosmology': <class 'astropy.cosmology.flrw.lambdacdm.FlatLambdaCDM'>,
          'name': 'Planck18', 'Oc0': 0.2607, 'n': 0.9665, 'sigma8': 0.8102, ...
     """
     if not issubclass(cls, (dict, Mapping)):
@@ -191,7 +191,9 @@ def to_mapping(cosmology, *args, cls=dict, cosmology_as_str=False, move_from_met
 
     m = cls()
     # start with the cosmology class & name
-    m["cosmology"] = cosmology.__class__.__qualname__ if cosmology_as_str else cosmology.__class__
+    m["cosmology"] = (
+        cosmology.__class__.__qualname__ if cosmology_as_str else cosmology.__class__
+    )
     m["name"] = cosmology.name  # here only for dict ordering
 
     meta = copy.deepcopy(cosmology.meta)  # metadata (mutable)
@@ -204,8 +206,13 @@ def to_mapping(cosmology, *args, cls=dict, cosmology_as_str=False, move_from_met
         m.update(meta)
 
     # Add all the immutable inputs
-    m.update({k: v for k, v in cosmology._init_arguments.items()
-              if k not in ("meta", "name")})
+    m.update(
+        {
+            k: v
+            for k, v in cosmology._init_arguments.items()
+            if k not in ("meta", "name")
+        }
+    )
     # Lastly, add the metadata, if haven't already (above)
     if not move_from_meta:
         m["meta"] = meta  # TODO? should meta be type(cls)
