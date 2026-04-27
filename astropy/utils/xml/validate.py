@@ -32,25 +32,29 @@ def validate_schema(filename, schema_file):
     """
 
     base, ext = os.path.splitext(schema_file)
-    if ext == '.xsd':
-        schema_part = '--schema ' + schema_file
-    elif ext == '.dtd':
-        schema_part = '--dtdvalid ' + schema_file
+    if ext == ".xsd":
+        schema_part = "--schema"
+    elif ext == ".dtd":
+        schema_part = "--dtdvalid"
     else:
         raise TypeError("schema_file must be a path to an XML Schema or DTD")
 
     p = subprocess.Popen(
-        f"xmllint --noout --nonet {schema_part} {filename}",
-        shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        ["xmllint", "--noout", "--nonet", schema_part, schema_file, filename],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
     stdout, stderr = p.communicate()
 
     if p.returncode == 127:
-        raise OSError(
-            "xmllint not found, so can not validate schema")
+        raise OSError("xmllint not found, so can not validate schema")
     elif p.returncode < 0:
         from astropy.utils.misc import signal_number_to_name
+
         raise OSError(
             "xmllint was terminated by signal '{}'".format(
-                signal_number_to_name(-p.returncode)))
+                signal_number_to_name(-p.returncode)
+            )
+        )
 
     return p.returncode, stdout, stderr

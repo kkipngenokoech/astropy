@@ -6,8 +6,6 @@ Statistic functions used in `~astropy.modeling.fitting`.
 # pylint: disable=invalid-name
 import numpy as np
 
-from astropy.utils.decorators import format_doc
-
 __all__ = ["leastsquare", "leastsquare_1d", "leastsquare_2d", "leastsquare_3d"]
 
 
@@ -53,9 +51,9 @@ def leastsquare(measured_vals, updated_model, weights, *x):
     model_vals = updated_model(*x)
 
     if np.shape(model_vals) != np.shape(measured_vals):
-        message = "Shape mismatch between model ({}) and measured ({})"
         raise ValueError(
-            message.format(np.shape(model_vals), np.shape(measured_vals))
+            f"Shape mismatch between model ({np.shape(model_vals)}) "
+            f"and measured ({np.shape(measured_vals)})"
         )
 
     if weights is None:
@@ -65,6 +63,7 @@ def leastsquare(measured_vals, updated_model, weights, *x):
 
 
 # -------------------------------------------------------------------
+
 
 def leastsquare_1d(measured_vals, updated_model, weights, x):
     """

@@ -2,10 +2,8 @@
 
 """
 This module contains configuration and setup utilities for the
-Astropy project. This includes all functionality related to the
-affiliated package index.
+Astropy project.
 """
 
-from .paths import *
 from .configuration import *
-from .affiliated import *
+from .paths import *

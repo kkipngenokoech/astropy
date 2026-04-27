@@ -10,11 +10,12 @@ via these methods.
 
 import astropy.cosmology.units as cu
 import astropy.units as u
-from astropy.cosmology.core import _COSMOLOGY_CLASSES, Cosmology
 from astropy.cosmology.connect import convert_registry
+from astropy.cosmology.core import _COSMOLOGY_CLASSES, Cosmology
 from astropy.io.misc.yaml import AstropyDumper, AstropyLoader, dump, load
 
 from .mapping import from_mapping
+from .utils import FULLQUALNAME_SUBSTITUTIONS as QNS
 
 __all__ = []  # nothing is publicly scoped
 
@@ -39,6 +40,7 @@ def yaml_representer(tag):
     representer : callable[[`~astropy.io.misc.yaml.AstropyDumper`, |Cosmology|], str]
         Function to construct :mod:`yaml` representation of |Cosmology| object.
     """
+
     def representer(dumper, obj):
         """Cosmology yaml representer function for {}.
 
@@ -79,6 +81,7 @@ def yaml_constructor(cls):
     constructor : callable
         Function to construct |Cosmology| object from :mod:`yaml` representation.
     """
+
     def constructor(loader, node):
         """Cosmology yaml constructor function.
 
@@ -111,7 +114,10 @@ def register_cosmology_yaml(cosmo_cls):
     ----------
     cosmo_cls : `~astropy.cosmology.Cosmology` class
     """
-    tag = f"!{cosmo_cls.__module__}.{cosmo_cls.__qualname__}"
+    fqn = f"{cosmo_cls.__module__}.{cosmo_cls.__qualname__}"
+    tag = "!" + QNS.get(
+        fqn, fqn
+    )  # Possibly sub fully qualified name for a preferred path
 
     AstropyDumper.add_representer(cosmo_cls, yaml_representer(tag))
     AstropyLoader.add_constructor(tag, yaml_constructor(cosmo_cls))

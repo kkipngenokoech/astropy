@@ -20,6 +20,10 @@ on:
     tags:
     - '*'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   IS_CRON: 'true'
 
@@ -44,6 +48,11 @@ jobs:
             python: '3.10'
             toxenv: py310-test-devdeps
 
+          - name: Python 3.10 with dev version of infrastructure dependencies
+            os: ubuntu-latest
+            python: '3.10'
+            toxenv: py310-test-devinfra
+
           - name: Documentation link check
             os: ubuntu-latest
             python: 3.8
@@ -58,11 +67,11 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python }}
     - name: Install language-pack-de and tzdata
@@ -74,7 +83,7 @@ jobs:
       if: ${{ matrix.toxenv == 'linkcheck' }}
       run: sudo apt-get install graphviz
     - name: Install Python dependencies
-      run: python -m pip install --upgrade tox
+      run: python -m pip install --upgrade "tox<4"
     - name: Run tests
       run: tox ${{ matrix.toxargs}} -e ${{ matrix.toxenv}} -- ${{ matrix.toxposargs}}
 
@@ -101,20 +110,19 @@ jobs:
           #- arch: ppc64le
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - uses: uraimo/run-on-arch-action@v2.1.1
+      - uses: uraimo/run-on-arch-action@v2
         name: Run tests
         id: build
         with:
           arch: ${{ matrix.arch }}
-          distro: bullseye
+          distro: ubuntu_latest
 
           shell: /bin/bash
 
           install: |
-            echo "deb http://deb.debian.org/debian bullseye-backports main" >> /etc/apt/sources.list
             apt-get update -q -y
             apt-get install -q -y git \
                                   g++ \
@@ -125,8 +133,8 @@ jobs:
                                   python3-ply \
                                   python3-venv \
                                   cython3 \
-                                  libwcs7/bullseye-backports \
-                                  wcslib-dev/bullseye-backports \
+                                  libwcs7 \
+                                  wcslib-dev \
                                   libcfitsio-dev \
                                   liberfa1
 

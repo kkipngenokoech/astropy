@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ================================================================
 Convert a radial velocity to the Galactic Standard of Rest (GSR)
@@ -23,10 +22,10 @@ transformation using a sky position and barycentric radial-velocity.
 """
 
 ################################################################################
-# Make print work the same in all versions of Python and import the required
-# Astropy packages:
-import astropy.units as u
+# Import the required Astropy packages:
+
 import astropy.coordinates as coord
+import astropy.units as u
 
 ################################################################################
 # Use the latest convention for the Galactocentric coordinates

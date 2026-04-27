@@ -278,7 +278,7 @@ For the example grouped table ``obs_by_name`` from above, we compute the group
 means with the :meth:`~astropy.table.groups.TableGroups.aggregate` method::
 
   >>> obs_mean = obs_by_name.groups.aggregate(np.mean)  # doctest: +SHOW_WARNINGS
-  AstropyUserWarning: Cannot aggregate column 'obs_date' with type '<U10'
+  AstropyUserWarning: Cannot aggregate column 'obs_date' with type '<U10': ...
   >>> print(obs_mean)
   name mag_b mag_v
   ---- ----- -----
@@ -289,7 +289,7 @@ means with the :meth:`~astropy.table.groups.TableGroups.aggregate` method::
 It seems the magnitude values were successfully averaged, but what about the
 :class:`~astropy.utils.exceptions.AstropyUserWarning`? Since the ``obs_date``
 column is a string-type array, the :func:`numpy.mean` function failed and
-raised an exception.  Any time this happens
+raised an exception ``cannot perform reduceat with flexible type``.  Any time this happens
 :meth:`~astropy.table.groups.TableGroups.aggregate` will issue a warning and
 then drop that column from the output result. Note that the ``name`` column is
 one of the ``keys`` used to determine the grouping so it is automatically
@@ -689,15 +689,15 @@ source counts for different PSF fractions::
 
   >>> from astropy.table import Table, dstack
   >>> src1 = Table.read("""psf_frac  counts
-  ...                      0.10        45
-  ...                      0.50        90
-  ...                      0.90       120
+  ...                      0.10        45.
+  ...                      0.50        90.
+  ...                      0.90       120.
   ...                      """, format='ascii')
 
   >>> src2 = Table.read("""psf_frac  counts
-  ...                      0.10       200
-  ...                      0.50       300
-  ...                      0.90       350
+  ...                      0.10       200.
+  ...                      0.50       300.
+  ...                      0.90       350.
   ...                      """, format='ascii')
 
 Now we can stack these two tables depth-wise to get a single table with the
@@ -705,11 +705,11 @@ characteristics of both sources::
 
   >>> srcs = dstack([src1, src2])
   >>> print(srcs)
-  psf_frac [2] counts [2]
-  ------------ ----------
-    0.1 .. 0.1  45 .. 200
-    0.5 .. 0.5  90 .. 300
-    0.9 .. 0.9 120 .. 350
+   psf_frac      counts
+  ---------- --------------
+  0.1 .. 0.1  45.0 .. 200.0
+  0.5 .. 0.5  90.0 .. 300.0
+  0.9 .. 0.9 120.0 .. 350.0
 
 In this case the counts for the first source are accessible as
 ``srcs['counts'][:, 0]``, and likewise the second source counts are
