@@ -231,20 +231,41 @@ def _cstack(left, right):
         Result from this operation.
 
     """
-    noutp = _compute_n_outputs(left, right)
-
+    # Determine the dimensions of left and right operands
     if isinstance(left, Model):
-        cleft = _coord_matrix(left, 'left', noutp)
+        left_outputs = left.n_outputs
+        left_inputs = left.n_inputs
     else:
-        cleft = np.zeros((noutp, left.shape[1]))
-        cleft[: left.shape[0], : left.shape[1]] = left
+        left_outputs, left_inputs = left.shape
+        
     if isinstance(right, Model):
-        cright = _coord_matrix(right, 'right', noutp)
+        right_outputs = right.n_outputs
+        right_inputs = right.n_inputs
     else:
-        cright = np.zeros((noutp, right.shape[1]))
-        cright[-right.shape[0]:, -right.shape[1]:] = 1
+        right_outputs, right_inputs = right.shape
+    
+    # Total dimensions for the result
+    total_outputs = left_outputs + right_outputs
+    total_inputs = left_inputs + right_inputs
+    
+    # Create the result matrix
+    result = np.zeros((total_outputs, total_inputs))
+    
+    # Handle left operand
+    if isinstance(left, Model):
+        cleft = _coord_matrix(left, 'left', total_outputs)
+        result[:left_outputs, :left_inputs] = cleft[:left_outputs, :left_inputs]
+    else:
+        result[:left_outputs, :left_inputs] = left
+    
+    # Handle right operand
+    if isinstance(right, Model):
+        cright = _coord_matrix(right, 'right', total_outputs)
+        result[left_outputs:, left_inputs:] = cright[left_outputs:, left_inputs:]
+    else:
+        result[left_outputs:, left_inputs:] = right
 
-    return np.hstack([cleft, cright])
+    return result
 
 
 def _cdot(left, right):
