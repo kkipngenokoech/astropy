@@ -2,9 +2,9 @@
 
 import astropy.cosmology.units as cu
 import astropy.units as u
-from astropy.table import QTable
 from astropy.cosmology.connect import readwrite_registry
 from astropy.cosmology.core import Cosmology
+from astropy.table import QTable
 
 from .table import from_table, to_table
 
@@ -48,10 +48,14 @@ def read_ecsv(filename, index=None, *, move_to_meta=False, cosmology=None, **kwa
         table = QTable.read(filename, **kwargs)
 
     # build cosmology from table
-    return from_table(table, index=index, move_to_meta=move_to_meta, cosmology=cosmology)
+    return from_table(
+        table, index=index, move_to_meta=move_to_meta, cosmology=cosmology
+    )
 
 
-def write_ecsv(cosmology, file, *, overwrite=False, cls=QTable, cosmology_in_meta=True, **kwargs):
+def write_ecsv(
+    cosmology, file, *, overwrite=False, cls=QTable, cosmology_in_meta=True, **kwargs
+):
     """Serialize the cosmology into a ECSV.
 
     Parameters

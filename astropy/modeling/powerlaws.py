@@ -5,13 +5,19 @@ Power law model variants
 # pylint: disable=invalid-name
 import numpy as np
 
-from astropy.units import Quantity
+from astropy.units import Magnitude, Quantity, UnitsError, dimensionless_unscaled, mag
+
 from .core import Fittable1DModel
-from .parameters import Parameter, InputParameterError
+from .parameters import InputParameterError, Parameter
 
-
-__all__ = ['PowerLaw1D', 'BrokenPowerLaw1D', 'SmoothlyBrokenPowerLaw1D',
-           'ExponentialCutoffPowerLaw1D', 'LogParabola1D']
+__all__ = [
+    "PowerLaw1D",
+    "BrokenPowerLaw1D",
+    "SmoothlyBrokenPowerLaw1D",
+    "ExponentialCutoffPowerLaw1D",
+    "LogParabola1D",
+    "Schechter1D",
+]
 
 
 class PowerLaw1D(Fittable1DModel):
@@ -68,8 +74,10 @@ class PowerLaw1D(Fittable1DModel):
         return {self.inputs[0]: self.x_0.unit}
 
     def _parameter_units_for_data_units(self, inputs_unit, outputs_unit):
-        return {'x_0': inputs_unit[self.inputs[0]],
-                'amplitude': outputs_unit[self.outputs[0]]}
+        return {
+            "x_0": inputs_unit[self.inputs[0]],
+            "amplitude": outputs_unit[self.outputs[0]],
+        }
 
 
 class BrokenPowerLaw1D(Fittable1DModel):
@@ -141,8 +149,10 @@ class BrokenPowerLaw1D(Fittable1DModel):
         return {self.inputs[0]: self.x_break.unit}
 
     def _parameter_units_for_data_units(self, inputs_unit, outputs_unit):
-        return {'x_break': inputs_unit[self.inputs[0]],
-                'amplitude': outputs_unit[self.outputs[0]]}
+        return {
+            "x_break": inputs_unit[self.inputs[0]],
+            "amplitude": outputs_unit[self.outputs[0]],
+        }
 
 
 class SmoothlyBrokenPowerLaw1D(Fittable1DModel):
@@ -238,23 +248,23 @@ class SmoothlyBrokenPowerLaw1D(Fittable1DModel):
 
     """
 
-    amplitude = Parameter(default=1, min=0, description="Peak value at break point")
+    amplitude = Parameter(
+        default=1, min=0, description="Peak value at break point", mag=True
+    )
     x_break = Parameter(default=1, description="Break point")
     alpha_1 = Parameter(default=-2, description="Power law index before break point")
     alpha_2 = Parameter(default=2, description="Power law index after break point")
-    delta = Parameter(default=1, min=1.e-3, description="Smoothness Parameter")
+    delta = Parameter(default=1, min=1.0e-3, description="Smoothness Parameter")
 
     @amplitude.validator
     def amplitude(self, value):
         if np.any(value <= 0):
-            raise InputParameterError(
-                "amplitude parameter must be > 0")
+            raise InputParameterError("amplitude parameter must be > 0")
 
     @delta.validator
     def delta(self, value):
         if np.any(value < 0.001):
-            raise InputParameterError(
-                "delta parameter must be >= 0.001")
+            raise InputParameterError("delta parameter must be >= 0.001")
 
     @staticmethod
     def evaluate(x, amplitude, x_break, alpha_1, alpha_2, delta):
@@ -288,33 +298,34 @@ class SmoothlyBrokenPowerLaw1D(Fittable1DModel):
         if i.max():
             # In this case the main formula reduces to a simple power
             # law with index `alpha_2`.
-            f[i] = amplitude * xx[i] ** (-alpha_2) \
-                   / (2. ** ((alpha_1 - alpha_2) * delta))
+            f[i] = (
+                amplitude * xx[i] ** (-alpha_2) / (2.0 ** ((alpha_1 - alpha_2) * delta))
+            )
 
         i = logt < -threshold
         if i.max():
             # In this case the main formula reduces to a simple power
             # law with index `alpha_1`.
-            f[i] = amplitude * xx[i] ** (-alpha_1) \
-                   / (2. ** ((alpha_1 - alpha_2) * delta))
+            f[i] = (
+                amplitude * xx[i] ** (-alpha_1) / (2.0 ** ((alpha_1 - alpha_2) * delta))
+            )
 
         i = np.abs(logt) <= threshold
         if i.max():
             # In this case the `t` value is "comparable" to 1, hence we
             # we will evaluate the whole formula.
             t = np.exp(logt[i])
-            r = (1. + t) / 2.
-            f[i] = amplitude * xx[i] ** (-alpha_1) \
-                   * r ** ((alpha_1 - alpha_2) * delta)
+            r = (1.0 + t) / 2.0
+            f[i] = amplitude * xx[i] ** (-alpha_1) * r ** ((alpha_1 - alpha_2) * delta)
 
         if return_unit:
-            return Quantity(f, unit=return_unit, copy=False)
+            return Quantity(f, unit=return_unit, copy=False, subok=True)
         return f
 
     @staticmethod
     def fit_deriv(x, amplitude, x_break, alpha_1, alpha_2, delta):
         """One dimensional smoothly broken power law derivative with respect
-           to parameters"""
+        to parameters"""
 
         # Pre-calculate `x_b` and `x/x_b` and `logt` (see comments in
         # SmoothlyBrokenPowerLaw1D.evaluate)
@@ -332,8 +343,9 @@ class SmoothlyBrokenPowerLaw1D(Fittable1DModel):
         threshold = 30  # (see comments in SmoothlyBrokenPowerLaw1D.evaluate)
         i = logt > threshold
         if i.max():
-            f[i] = amplitude * xx[i] ** (-alpha_2) \
-                   / (2. ** ((alpha_1 - alpha_2) * delta))
+            f[i] = (
+                amplitude * xx[i] ** (-alpha_2) / (2.0 ** ((alpha_1 - alpha_2) * delta))
+            )
 
             d_amplitude[i] = f[i] / amplitude
             d_x_break[i] = f[i] * alpha_2 / x_break
@@ -343,8 +355,9 @@ class SmoothlyBrokenPowerLaw1D(Fittable1DModel):
 
         i = logt < -threshold
         if i.max():
-            f[i] = amplitude * xx[i] ** (-alpha_1) \
-                   / (2. ** ((alpha_1 - alpha_2) * delta))
+            f[i] = (
+                amplitude * xx[i] ** (-alpha_1) / (2.0 ** ((alpha_1 - alpha_2) * delta))
+            )
 
             d_amplitude[i] = f[i] / amplitude
             d_x_break[i] = f[i] * alpha_1 / x_break
@@ -355,16 +368,20 @@ class SmoothlyBrokenPowerLaw1D(Fittable1DModel):
         i = np.abs(logt) <= threshold
         if i.max():
             t = np.exp(logt[i])
-            r = (1. + t) / 2.
-            f[i] = amplitude * xx[i] ** (-alpha_1) \
-                   * r ** ((alpha_1 - alpha_2) * delta)
+            r = (1.0 + t) / 2.0
+            f[i] = amplitude * xx[i] ** (-alpha_1) * r ** ((alpha_1 - alpha_2) * delta)
 
             d_amplitude[i] = f[i] / amplitude
-            d_x_break[i] = f[i] * (alpha_1 - (alpha_1 - alpha_2) * t / 2. / r) / x_break
+            d_x_break[i] = (
+                f[i] * (alpha_1 - (alpha_1 - alpha_2) * t / 2.0 / r) / x_break
+            )
             d_alpha_1[i] = f[i] * (-np.log(xx[i]) + delta * np.log(r))
             d_alpha_2[i] = f[i] * (-delta * np.log(r))
-            d_delta[i] = f[i] * (alpha_1 - alpha_2) \
-                         * (np.log(r) - t / (1. + t) / delta * np.log(xx[i]))
+            d_delta[i] = (
+                f[i]
+                * (alpha_1 - alpha_2)
+                * (np.log(r) - t / (1.0 + t) / delta * np.log(xx[i]))
+            )
 
         return [d_amplitude, d_x_break, d_alpha_1, d_alpha_2, d_delta]
 
@@ -375,8 +392,10 @@ class SmoothlyBrokenPowerLaw1D(Fittable1DModel):
         return {self.inputs[0]: self.x_break.unit}
 
     def _parameter_units_for_data_units(self, inputs_unit, outputs_unit):
-        return {'x_break': inputs_unit[self.inputs[0]],
-                'amplitude': outputs_unit[self.outputs[0]]}
+        return {
+            "x_break": inputs_unit[self.inputs[0]],
+            "amplitude": outputs_unit[self.outputs[0]],
+        }
 
 
 class ExponentialCutoffPowerLaw1D(Fittable1DModel):
@@ -420,7 +439,9 @@ class ExponentialCutoffPowerLaw1D(Fittable1DModel):
 
     @staticmethod
     def fit_deriv(x, amplitude, x_0, alpha, x_cutoff):
-        """One dimensional exponential cutoff power law derivative with respect to parameters"""
+        """
+        One dimensional exponential cutoff power law derivative with respect to parameters
+        """
 
         xx = x / x_0
         xc = x / x_cutoff
@@ -428,7 +449,7 @@ class ExponentialCutoffPowerLaw1D(Fittable1DModel):
         d_amplitude = xx ** (-alpha) * np.exp(-xc)
         d_x_0 = alpha * amplitude * d_amplitude / x_0
         d_alpha = -amplitude * d_amplitude * np.log(xx)
-        d_x_cutoff = amplitude * x * d_amplitude / x_cutoff ** 2
+        d_x_cutoff = amplitude * x * d_amplitude / x_cutoff**2
 
         return [d_amplitude, d_x_0, d_alpha, d_x_cutoff]
 
@@ -439,9 +460,11 @@ class ExponentialCutoffPowerLaw1D(Fittable1DModel):
         return {self.inputs[0]: self.x_0.unit}
 
     def _parameter_units_for_data_units(self, inputs_unit, outputs_unit):
-        return {'x_0': inputs_unit[self.inputs[0]],
-                'x_cutoff': inputs_unit[self.inputs[0]],
-                'amplitude': outputs_unit[self.outputs[0]]}
+        return {
+            "x_0": inputs_unit[self.inputs[0]],
+            "x_cutoff": inputs_unit[self.inputs[0]],
+            "amplitude": outputs_unit[self.outputs[0]],
+        }
 
 
 class LogParabola1D(Fittable1DModel):
@@ -465,9 +488,12 @@ class LogParabola1D(Fittable1DModel):
 
     Notes
     -----
-    Model formula (with :math:`A` for ``amplitude`` and :math:`\\alpha` for ``alpha`` and :math:`\\beta` for ``beta``):
+    Model formula (with :math:`A` for ``amplitude`` and
+    :math:`\\alpha` for ``alpha`` and :math:`\\beta` for ``beta``):
 
-        .. math:: f(x) = A \\left(\\frac{x}{x_{0}}\\right)^{- \\alpha - \\beta \\log{\\left (\\frac{x}{x_{0}} \\right )}}
+        .. math:: f(x) = A \\left(
+                \\frac{x}{x_{0}}\\right)^{- \\alpha - \\beta \\log{\\left (\\frac{x}{x_{0}}
+            \\right )}}
 
     """
 
@@ -482,7 +508,7 @@ class LogParabola1D(Fittable1DModel):
 
         xx = x / x_0
         exponent = -alpha - beta * np.log(xx)
-        return amplitude * xx ** exponent
+        return amplitude * xx**exponent
 
     @staticmethod
     def fit_deriv(x, amplitude, x_0, alpha, beta):
@@ -492,8 +518,8 @@ class LogParabola1D(Fittable1DModel):
         log_xx = np.log(xx)
         exponent = -alpha - beta * log_xx
 
-        d_amplitude = xx ** exponent
-        d_beta = -amplitude * d_amplitude * log_xx ** 2
+        d_amplitude = xx**exponent
+        d_beta = -amplitude * d_amplitude * log_xx**2
         d_x_0 = amplitude * d_amplitude * (beta * log_xx / x_0 - exponent / x_0)
         d_alpha = -amplitude * d_amplitude * log_xx
         return [d_amplitude, d_x_0, d_alpha, d_beta]
@@ -505,5 +531,137 @@ class LogParabola1D(Fittable1DModel):
         return {self.inputs[0]: self.x_0.unit}
 
     def _parameter_units_for_data_units(self, inputs_unit, outputs_unit):
-        return {'x_0': inputs_unit[self.inputs[0]],
-                'amplitude': outputs_unit[self.outputs[0]]}
+        return {
+            "x_0": inputs_unit[self.inputs[0]],
+            "amplitude": outputs_unit[self.outputs[0]],
+        }
+
+
+class Schechter1D(Fittable1DModel):
+    r"""
+    Schechter luminosity function (`Schechter 1976
+    <https://ui.adsabs.harvard.edu/abs/1976ApJ...203..297S/abstract>`_),
+    parameterized in terms of magnitudes.
+
+    Parameters
+    ----------
+    phi_star : float
+        The normalization factor in units of number density.
+
+    m_star : float
+        The characteristic magnitude where the power-law form of the
+        function cuts off.
+
+    alpha : float
+        The power law index, also known as the faint-end slope. Must not
+        have units.
+
+    See Also
+    --------
+    PowerLaw1D, ExponentialCutoffPowerLaw1D, BrokenPowerLaw1D
+
+    Notes
+    -----
+    Model formula (with :math:`\phi^{*}` for ``phi_star``, :math:`M^{*}`
+    for ``m_star``, and :math:`\alpha` for ``alpha``):
+
+    .. math::
+
+        n(M) \ dM = (0.4 \ln 10) \ \phi^{*} \
+            [{10^{0.4 (M^{*} - M)}}]^{\alpha + 1} \
+            \exp{[-10^{0.4 (M^{*} - M)}]} \ dM
+
+    ``phi_star`` is the normalization factor in units of number density.
+    ``m_star`` is the characteristic magnitude where the power-law form
+    of the function cuts off into the exponential form. ``alpha`` is
+    the power-law index, defining the faint-end slope of the luminosity
+    function.
+
+    Examples
+    --------
+    .. plot::
+        :include-source:
+
+        from astropy.modeling.models import Schechter1D
+        import astropy.units as u
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        phi_star = 4.3e-4 * (u.Mpc ** -3)
+        m_star = -20.26
+        alpha = -1.98
+        model = Schechter1D(phi_star, m_star, alpha)
+        mag = np.linspace(-25, -17)
+
+        fig, ax = plt.subplots()
+        ax.plot(mag, model(mag))
+        ax.set_yscale('log')
+        ax.set_xlim(-22.6, -17)
+        ax.set_ylim(1.e-7, 1.e-2)
+        ax.set_xlabel('$M_{UV}$')
+        ax.set_ylabel('$\phi$ [mag$^{-1}$ Mpc$^{-3}]$')
+
+    References
+    ----------
+    .. [1] Schechter 1976; ApJ 203, 297
+           (https://ui.adsabs.harvard.edu/abs/1976ApJ...203..297S/abstract)
+
+    .. [2] `Luminosity function <https://en.wikipedia.org/wiki/Luminosity_function_(astronomy)>`_
+    """
+
+    phi_star = Parameter(
+        default=1.0, description="Normalization factor in units of number density"
+    )
+    m_star = Parameter(default=-20.0, description="Characteristic magnitude", mag=True)
+    alpha = Parameter(default=-1.0, description="Faint-end slope")
+
+    @staticmethod
+    def _factor(magnitude, m_star):
+        factor_exp = magnitude - m_star
+
+        if isinstance(factor_exp, Quantity):
+            if factor_exp.unit == mag:
+                factor_exp = Magnitude(factor_exp.value, unit=mag)
+
+                return factor_exp.to(dimensionless_unscaled)
+            else:
+                raise UnitsError(
+                    "The units of magnitude and m_star must be a magnitude"
+                )
+        else:
+            return 10 ** (-0.4 * factor_exp)
+
+    def evaluate(self, mag, phi_star, m_star, alpha):
+        """Schechter luminosity function model function."""
+
+        factor = self._factor(mag, m_star)
+
+        return 0.4 * np.log(10) * phi_star * factor ** (alpha + 1) * np.exp(-factor)
+
+    def fit_deriv(self, mag, phi_star, m_star, alpha):
+        """
+        Schechter luminosity function derivative with respect to
+        parameters.
+        """
+        factor = self._factor(mag, m_star)
+
+        d_phi_star = 0.4 * np.log(10) * factor ** (alpha + 1) * np.exp(-factor)
+        func = phi_star * d_phi_star
+        d_m_star = (alpha + 1) * 0.4 * np.log(10) * func - (
+            0.4 * np.log(10) * func * factor
+        )
+        d_alpha = func * np.log(factor)
+
+        return [d_phi_star, d_m_star, d_alpha]
+
+    @property
+    def input_units(self):
+        if self.m_star.unit is None:
+            return None
+        return {self.inputs[0]: self.m_star.unit}
+
+    def _parameter_units_for_data_units(self, inputs_unit, outputs_unit):
+        return {
+            "m_star": inputs_unit[self.inputs[0]],
+            "phi_star": outputs_unit[self.outputs[0]],
+        }
