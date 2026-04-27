@@ -54,8 +54,6 @@ There are a number of ways to create an |Angle|::
     <Angle -1.03416667 hourangle>
     >>> Angle('-1h2m3sW')               # Hour, minute, second, direction  # doctest: +FLOAT_CMP
     <Angle 1.03416667 hourangle>
-    >>> Angle((-1, 2, 3), unit=u.deg)  # (degree, arcmin, arcsec)  # doctest: +FLOAT_CMP
-    <Angle -1.03416667 deg>
     >>> Angle(10.2345 * u.deg)         # From a Quantity object in degrees  # doctest: +FLOAT_CMP
     <Angle 10.2345 deg>
     >>> Angle(Angle(10.2345 * u.deg))  # From another Angle object  # doctest: +FLOAT_CMP
@@ -100,6 +98,12 @@ There are many ways to represent the value of an |Angle|::
     signed_dms_tuple(sign=-1.0, d=57.0, m=17.0, s=44.806247096362313)
     >>> a.arcminute  # doctest: +FLOAT_CMP
     3437.7467707849396
+    >>> f"{a}"
+    '1.0 rad'
+    >>> f"{a:latex}"
+    '$1\\mathrm{rad}$'
+    >>> f"{a.to(u.deg):latex}"
+    '$57^\\circ17{}^\\prime44.8062471{}^{\\prime\\prime}$'
     >>> a.to_string()
     '1rad'
     >>> a.to_string(unit=u.degree)
@@ -330,7 +334,7 @@ Comparing Spherical Point Generation Methods
         pts = func(size=128)
 
         xyz = pts.to_cartesian().xyz
-        ax.plot(*xyz, ls='none')
+        ax.scatter(*xyz)
 
         ax.set(xlim=(-1, 1),
             ylim=(-1, 1),

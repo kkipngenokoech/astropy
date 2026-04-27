@@ -106,7 +106,15 @@ The procedure for the feature freeze is as follows:
       $ git push upstream main:main
       $ git push upstream v<next_version>.dev:v<next_version>.dev
 
+#. Update the "Actual date" column of
+   https://github.com/astropy/astropy/wiki/Release-Calendar with the current
+   date for this version's feature freeze.
+
 #. Inform the Astropy developer community that the branching has occurred.
+
+#. Once the feature freeze has happened, you should go through the PRs labeled
+   with ``backport-v<prev_version>.x`` to see if they must also be labeled with
+   the new version backport label.
 
 .. _release-procedure-first-rc:
 
@@ -120,24 +128,10 @@ Restricting changes to the release branch
 
 This step is optional and could also be done at a later stage in the release process,
 but you may want to temporarily restrict who can push/merge pull requests to the
-release branch so that someone does not inadvertantly push changes to the release
+release branch so that someone does not inadvertently push changes to the release
 branch while you are in the middle of following release steps. If you wish to do this,
 you can go to the core package repository settings, and under 'Branches' and 'Branch
 protection rules' you can then add a rule which restricts who can push to the branch.
-
-.. _release-procedure-update-iers:
-
-Updating the IERS parameter and leap second tables
---------------------------------------------------
-
-Ensure the built-in IERS earth rotation parameter and leap second tables are up
-to date by changing directory to ``astropy/utils/iers/data`` and executing
-``update_builtin_iers.sh``. Check the result with ``git diff`` (do not be
-surprised to find many lines in the ``eopc04_IAU2000.62-now`` file change; those
-data are reanalyzed periodically) and committing. This update should be done via a
-pull request to the ``main`` branch, and then backported to the release branch,
-as it is important for the ``main`` branch to have up-to-date values, and donig it
-via a pull request allows us to check for any failures the update introduces.
 
 .. _release-procedure-update-whatsnew:
 
@@ -155,7 +149,7 @@ To find the statistics and contributors, use the `generate_releaserst.xsh`_
 script. This requires `xonsh <https://xon.sh/>`_ and `docopt
 <http://docopt.org/>`_ which you can install with::
 
-   pip install xonsh docopt
+   pip install xonsh docopt requests
 
 You should then run the script in the root of the astropy repository as follows::
 
@@ -227,50 +221,41 @@ and commit this and the ``.mailmap`` changes::
 Open a pull request to merge this into ``main`` and mark it as requiring backporting to
 the release branch.
 
-
-.. _release-procedure-update-ci:
-
-Update continuous integration configuration
--------------------------------------------
-
-Update the continuous integration configuration in the release branch
-to run on all commits rather than use cron jobs. For example, for GitHub actions,
-you should edit the ``ci_cron*.yml`` files and replace the existing ``on`` section
-with e.g.::
-
-   on:
-   push:
-      branches:
-      - v5.0.x
-   pull_request:
-      branches:
-      - v5.0.x
-
-(with the branch name replaced by the appropriate one), and remove any lines that
-look like e.g.::
-
-        if: (github.repository == 'astropy/astropy' && (github.event_name == 'schedule' ...
-
-This is important because once you are on a release branch, it is necessary to make sure
-we are much more careful about not introducing regressions and we cannot always wait for the
-cron jobs to run to carry out the release.
-
 .. _release-procedure-check-ci:
 
 Ensure continuous integration and intensive tests pass
 ------------------------------------------------------
 
+Update ``.github/workflows/ci_workflows.yml`` so that pushes on the release
+branch trigger a build with Github Actions, e.g.::
+
+  on:
+    push:
+      branches:
+      - v5.1.x
+    pull_request:
+      branches:
+      - v5.1.x
+
+You also need to activate builds on the release branch for ReadTheDocs. Go to
+`RTD's Settings <https://readthedocs.org/projects/astropy/versions/>`_ and check
+"Activate" and "Hidden" for the new release branch.
+
 Make sure that the continuous integration services (e.g., GitHub Actions or CircleCI) are passing
-for the `astropy core repository`_ branch you are going to release. Also check that
-the `Azure core package pipeline`_ which builds wheels on the ``v*`` branches is passing.
+for the `astropy core repository`_ branch you are going to release.
 Also make sure that the ReadTheDocs build is passing for the release branch.
+
+One of the continuous integration tasks that should be run periodically is the updates to the
+IERS tables in ``astropy.utils.iers``, so check that the last run from this has been
+successfully run and that related pull requests have been merged (and backported if needed).
+You can also manually trigger it using its workflow dispatch option.
 
 You may also want to locally run the tests (with remote data on to ensure all
 of the tests actually run), using tox to do a thorough test in an isolated
 environment::
 
    $ pip install tox --upgrade
-   $ TEST_READ_HUGE_FILE=1 tox -e test-alldeps -- --remote-data=any
+   $ tox -e test-alldeps -- --remote-data=any --run-slow --run-hugemem
 
 Additional notes
 ----------------
@@ -308,7 +293,7 @@ Push up the tag to the `astropy core repository`_, e.g.::
    but this should *not* be done, as it might push up some unintended tags.
 
 At this point if all goes well, the wheels and sdist will be build
-in the `Azure core package pipeline`_ and uploaded to PyPI!
+in the release workflow and uploaded to PyPI!
 
 In the event there are any issues with the wheel building for the tag
 (which shouldn't really happen if it was passing for the release branch),
@@ -333,6 +318,10 @@ as a template. You can now email the user and developer community advertising
 the release candidate and including a link to the wiki page to report any
 successes and failures.
 
+Additionally, you should update the release calendar by going to
+https://github.com/astropy/astropy/wiki/Release-Calendar and updating the
+"Actual date" column of this version's release candidate with the current date.
+
 Releasing subsequent release candidates
 =======================================
 
@@ -344,7 +333,6 @@ fixes is described in :ref:`release-procedure-bug-fix-backport`.
 Once you have backported any required fixes, repeat the following steps
 you did for the first release candidate:
 
-* :ref:`release-procedure-update-iers` (optional, only do this if it has been a while since it was done before the first release candidate)
 * :ref:`release-procedure-update-whatsnew` (this should only involve updating the numbers of issues and so on, as well as potentially adding a few new contributors)
 * :ref:`release-procedure-check-ci`
 
@@ -362,16 +350,11 @@ Releasing the final version of the major release
 Rendering the changelog
 -----------------------
 
-.. warning:: Make sure that you have a very recent version of towncrier - at the time of
-             writing you will need the 21.9.0rc1 pre-release for things to work correctly::
-
-                $ pip install towncrier==21.9.0rc1
-
-We now need to render the changelog with towncrier. Since it is a good idea to
-review the changelog and fix any line wrap and other issues, we do this on
-a separate branch and open a pull request into the release branch to allow for
-easy review. First, create and switch to a new branch based off the release
-branch, e.g.::
+We now need to render the changelog with towncrier (21.9.0 or later). Since it
+is a good idea to review the changelog and fix any line wrap and other issues,
+we do this on a separate branch and open a pull request into the release branch
+to allow for easy review. First, create and switch to a new branch based off the
+release branch, e.g.::
 
    $ git checkout -b v5.0-changelog
 
@@ -438,8 +421,8 @@ Post-Release procedures
       $ git push upstream stable --force
 
 #. If this is an LTS release (whether or not it is being supported alongside
-   a more recent version), update the "LTS" branch to ponit to the new LTS
-   release:
+   a more recent version), update the "LTS" branch to point to the new LTS
+   release::
 
       $ git checkout LTS
       $ git reset --hard v<version>
@@ -491,13 +474,20 @@ Post-Release procedures
    https://doi.org/10.5281/zenodo.4670728 . If you encounter problems during this
    step, please contact the Astropy Coordination Committee.
 
-#. Once the release(s) are available on the default ``conda`` channels,
-   prepare the public announcement. Use the previous announcement as a template,
-   but link to the release tag instead of ``stable``. For a new major release,
-   you should coordinate with the rest of the Astropy release team and the
-   community engagement coordinators. Meanwhile, for a bugfix release, you can
+#. Once the release(s) are available on the default ``conda`` channels, prepare
+   the public announcement. For a new major release, copy the `latest
+   announcement
+   <https://github.com/astropy/astropy.github.com/tree/main/announcements>`_ and
+   edit it to update the version number and links. Once it is merged, you can
    proceed to send out an email to the ``astropy-dev`` and Astropy mailing
-   lists.
+   lists. For a bugfix release, use the previous announcement as a template.
+   You should also coordinate with the rest of the Astropy release team and the
+   community engagement coordinators.
+
+#. If this is a major release, update the release calendar by going to
+   https://github.com/astropy/astropy/wiki/Release-Calendar and updating the
+   "Actual date" column of this version's release with the date you performed
+   the release (probably the date of the tag and PyPI upload).
 
 .. _release-procedure-bug-fix:
 
@@ -550,7 +540,6 @@ in :ref:`release-procedure-bug-fix-backport`.
 Once you have backported any required fixes, go through the following steps
 in a similar way to the initial major release:
 
-* :ref:`release-procedure-update-iers` (this should be done in ``main`` and backport it)
 * :ref:`release-procedure-check-ci`
 * :ref:`release-procedure-render-changelog`
 * :ref:`release-procedure-checking-changelog`
@@ -571,7 +560,7 @@ Push up the tag to the `astropy core repository`_, e.g.::
    but this should *not* be done, as it might push up some unintended tags.
 
 At this point if all goes well, the wheels and sdist will be build
-in the `Azure core package pipeline`_ and uploaded to PyPI!
+in the release workflow and uploaded to PyPI!
 
 In the event there are any issues with the wheel building for the tag
 (which shouldn't really happen if it was passing for the release branch),
@@ -580,7 +569,7 @@ tag locally, e.g.::
 
    git tag -d v5.0.1
 
-and on GitHub:
+and on GitHub::
 
    git push upstream :refs/tags/v5.0.1
 
@@ -613,7 +602,7 @@ Backporting fixes from main
     freeze but before its release.
 
 Most pull requests will be backported automatically by a backport bot, which
-opens pull requests with the backports aganist the release branch. Make sure
+opens pull requests with the backports against the release branch. Make sure
 that any such pull requests are merged in before starting the release process
 for a new bugfix release.
 
@@ -679,5 +668,4 @@ it's harder for commits that need to be backported from getting lost.
 .. _astropy-tools repository: https://github.com/astropy/astropy-tools
 .. _Anaconda: https://conda.io/docs/
 .. _twine: https://packaging.python.org/key_projects/#twine
-.. _Azure core package pipeline: https://dev.azure.com/astropy-project/astropy/_build
 .. _generate_releaserst.xsh: https://raw.githubusercontent.com/sunpy/sunpy/main/tools/generate_releaserst.xsh

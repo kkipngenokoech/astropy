@@ -14,7 +14,7 @@ jobs:
     steps:
     # NOTE: sync-labels due to https://github.com/actions/labeler/issues/112
     - name: Label PR
-      uses: actions/labeler@v3
+      uses: actions/labeler@v4
       if: github.event_name == 'pull_request_target' && github.event.pull_request.user.login != 'meeseeksmachine'
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
@@ -42,8 +42,7 @@ jobs:
 
 
             If you feel that this issue has not been responded to in a timely
-            manner, please leave a comment mentioning our software support
-            engineer @embray, or send a message directly to the [development
+            manner, please send a message directly to the [development
             mailing list](http://groups.google.com/group/astropy-dev).  If
             the issue is urgent or sensitive in nature (e.g., a security
             vulnerability) please send an e-mail directly to the private e-mail
@@ -61,20 +60,19 @@ jobs:
 
 
             If you feel that this pull request has not been responded to in a
-            timely manner, please leave a comment mentioning our software
-            support engineer @embray, or send a message directly to the
+            timely manner, please send a message directly to the
             [development mailing
             list](http://groups.google.com/group/astropy-dev).  If the issue is
             urgent or sensitive in nature (e.g., a security vulnerability)
             please send an e-mail directly to the private e-mail
             feedback@astropy.org.
     - name: 'Comment Draft PR'
-      uses: actions/github-script@v3
+      uses: actions/github-script@v6
       if: github.event.pull_request.draft == true
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
-          github.issues.createComment({
+          await github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
