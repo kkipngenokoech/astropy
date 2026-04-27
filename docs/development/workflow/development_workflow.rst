@@ -46,10 +46,7 @@ Some `git`_ resources
 =====================
 
 If you have never used git or have limited experience with it, take a few
-minutes to look at these resources:
-
-* `Interactive tutorial`_ that runs in a browser
-* `Git Basics`_, part of a much longer `git book`_.
+minutes to look at `Git Basics`_, part of a much longer `git book`_.
 
 In practice, you need only a handful of `git`_ commands to make contributions
 to Astropy. There is a more extensive list of :ref:`git-resources` if you
@@ -127,6 +124,10 @@ walks you through recovering from `git`_ mistakes is the
 Astropy Guidelines for `git`_
 *****************************
 
+.. note::
+    It is strongly suggested that you automate the code-style checks using the
+    provided pre-commit hook, see :ref:`pre-commit` below for details.
+
 * Don't use your ``main`` branch for anything. Consider :ref:`delete-main`.
 * Make a new branch, called a *feature branch*, for each separable set of
   changes: "one task, one branch" (`ipython git workflow`_).
@@ -148,6 +149,57 @@ document:
 * Name the remote that is the primary Astropy repository
   ``astropy``; in prior versions of this documentation it was referred to as
   ``upstream``.
+
+
+.. _pre-commit:
+
+Pre-commit
+**********
+
+All of the coding style checks described in :ref:`code-style` can be performed automatically
+when you make a git commit using our provided `pre-commit hook <https://pre-commit.com/>`_
+for git, for more information see
+`git hooks <https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks#_git_hooks>`_.
+We encourage you to setup and use these hooks to ensure that your code always meets
+our coding style standards. This can be done by installing ``pre-commit`` in the root
+of your astropy repository by running::
+
+    pip install pre-commit
+
+Or if you prefer `conda`_::
+
+    conda install pre-commit
+
+Followed by::
+
+    pre-commit install
+
+For more detailed instructions on installing ``pre-commit``, see the
+`install guide <https://pre-commit.com/#install>`_. Once this installation is
+complete, all the coding style checks will be run each time you commit and the
+necessary changes will automatically be applied to your code if possible.
+
+.. note::
+  The changes made by ``pre-commit`` will not be automatically staged, so you
+  will need to review and re-stage any files that ``pre-commit`` has changed.
+
+In general, git will not allow you to commit until the ``pre-commit`` hook has
+run successfully. If you need to make a commit which fails the ``pre-commit`` checks,
+you can skip these checks by running::
+
+  git commit --no-verify
+
+If you do not want to use ``pre-commit`` as part of your git workflow, you can
+still run the checks manually (see, :ref:`code-style`) using::
+
+  tox -e codestyle
+
+Again, this will automatically apply the necessary changes to your code if possible.
+
+.. note::
+  Once you have made a pull-request the ``pre-commit.ci`` bot is available to assist
+  you with fixing any issues with your code style, see :ref:`pre-commit_bot` for details
+  on how to use this bot.
 
 Workflow
 ********
@@ -258,14 +310,17 @@ Install your branch
 Ideally you should set up a Python virtual environment just for this fix;
 instructions for doing to are at :ref:`virtual_envs`. Doing so ensures you
 will not corrupt your main ``astropy`` install and makes it very easy to recover
-from mistakes.
+from mistakes, and thus, is recommended before you proceed.
 
-Once you have activated that environment, you need to install the version of
-``astropy`` you are working on. Do that with:
+Assuming you have set up and activated this virtual environment, you need to
+install the version of ``astropy`` you are working on into it. Do that with:
 
 .. code-block:: bash
 
-    pip install -e .
+    pip install -e .[test]
+
+This will install ``astropy`` itself, along with a few packages which will be
+useful for testing the changes you will make down the road.
 
 For more details on building ``astropy`` from source, see
 :ref:`dev-build-astropy-subpkg`.
@@ -576,7 +631,6 @@ can delete any backup branches that may have been created::
 
 .. include:: links.inc
 
-.. _Interactive tutorial: http://try.github.io/
 .. _Git Basics: https://git-scm.com/book/en/Getting-Started-Git-Basics
 .. _git book: https://git-scm.com/book/
 .. _Astropy issue list: https://github.com/astropy/astropy/issues

@@ -1,8 +1,8 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+from collections import defaultdict
 
 import numpy as np
-
 from matplotlib import rcParams
 from matplotlib.text import Text
 
@@ -14,14 +14,13 @@ def sort_using(X, Y):
 
 
 class TickLabels(Text):
-
     def __init__(self, frame, *args, **kwargs):
         self.clear()
         self._frame = frame
         super().__init__(*args, **kwargs)
         self.set_clip_on(True)
-        self.set_visible_axes('all')
-        self.set_pad(rcParams['xtick.major.pad'])
+        self.set_visible_axes("all")
+        self.set_pad(rcParams["xtick.major.pad"])
         self._exclude_overlapping = False
 
         # Stale if either xy positions haven't been calculated, or if
@@ -30,32 +29,76 @@ class TickLabels(Text):
 
         # Check rcParams
 
-        if 'color' not in kwargs:
-            self.set_color(rcParams['xtick.color'])
+        if "color" not in kwargs:
+            self.set_color(rcParams["xtick.color"])
 
-        if 'size' not in kwargs:
-            self.set_size(rcParams['xtick.labelsize'])
+        if "size" not in kwargs:
+            self.set_size(rcParams["xtick.labelsize"])
 
     def clear(self):
-        self.world = {}
-        self.pixel = {}
-        self.angle = {}
-        self.text = {}
-        self.disp = {}
+        self.world = defaultdict(list)
+        self.data = defaultdict(list)
+        self.angle = defaultdict(list)
+        self.text = defaultdict(list)
+        self.disp = defaultdict(list)
 
-    def add(self, axis, world, pixel, angle, text, axis_displacement):
-        if axis not in self.world:
-            self.world[axis] = [world]
-            self.pixel[axis] = [pixel]
-            self.angle[axis] = [angle]
-            self.text[axis] = [text]
-            self.disp[axis] = [axis_displacement]
-        else:
-            self.world[axis].append(world)
-            self.pixel[axis].append(pixel)
-            self.angle[axis].append(angle)
-            self.text[axis].append(text)
-            self.disp[axis].append(axis_displacement)
+    def add(
+        self,
+        axis=None,
+        world=None,
+        pixel=None,
+        angle=None,
+        text=None,
+        axis_displacement=None,
+        data=None,
+    ):
+        """
+        Add a label.
+
+        Parameters
+        ----------
+        axis : str
+            Axis to add label to.
+        world : Quantity
+            Coordinate value along this axis.
+        pixel : [float, float]
+            Pixel coordinates of the label. Deprecated and no longer used.
+        angle : float
+            Angle of the label.
+        text : str
+            Label text.
+        axis_displacement : float
+            Displacement from axis.
+        data : [float, float]
+            Data coordinates of the label.
+        """
+        required_args = ["axis", "world", "angle", "text", "axis_displacement", "data"]
+        if pixel is not None:
+            warnings.warn(
+                "Setting the pixel coordinates of a label does nothing and is"
+                " deprecated, as these can only be accurately calculated when"
+                " Matplotlib is drawing a figure. To prevent this warning pass the"
+                f" following arguments as keyword arguments: {required_args}",
+                AstropyDeprecationWarning,
+            )
+        if (
+            axis is None
+            or world is None
+            or angle is None
+            or text is None
+            or axis_displacement is None
+            or data is None
+        ):
+            raise TypeError(
+                f"All of the following arguments must be provided: {required_args}"
+            )
+
+        self.world[axis].append(world)
+        self.data[axis].append(data)
+        self.angle[axis].append(angle)
+        self.text[axis].append(text)
+        self.disp[axis].append(axis_displacement)
+
         self._stale = True
 
     def sort(self):
@@ -65,7 +108,7 @@ class TickLabels(Text):
         """
         for axis in self.world:
             self.world[axis] = sort_using(self.world[axis], self.disp[axis])
-            self.pixel[axis] = sort_using(self.pixel[axis], self.disp[axis])
+            self.data[axis] = sort_using(self.data[axis], self.disp[axis])
             self.angle[axis] = sort_using(self.angle[axis], self.disp[axis])
             self.text[axis] = sort_using(self.text[axis], self.disp[axis])
             self.disp[axis] = sort_using(self.disp[axis], self.disp[axis])
@@ -91,17 +134,17 @@ class TickLabels(Text):
                 for j in range(len(t1) - 1):
                     if t1[j] != t2[j]:
                         break
-                    if t1[j] not in '-0123456789.':
+                    if t1[j] not in "-0123456789.":
                         start = j + 1
                 t1 = self.text[axis][i]
                 if start != 0:
-                    starts_dollar = self.text[axis][i].startswith('$')
+                    starts_dollar = self.text[axis][i].startswith("$")
                     self.text[axis][i] = self.text[axis][i][start:]
                     if starts_dollar:
-                        self.text[axis][i] = '$' + self.text[axis][i]
+                        self.text[axis][i] = "$" + self.text[axis][i]
                 # Remove any empty LaTeX inline math mode string
-                if self.text[axis][i] == '$$':
-                    self.text[axis][i] = ''
+                if self.text[axis][i] == "$$":
+                    self.text[axis][i] = ""
 
         self._stale = True
 
@@ -117,7 +160,7 @@ class TickLabels(Text):
         self._stale = True
 
     def get_visible_axes(self):
-        if self._visible_axes == 'all':
+        if self._visible_axes == "all":
             return self.world.keys()
         else:
             return [x for x in self._visible_axes if x in self.world]
@@ -146,33 +189,33 @@ class TickLabels(Text):
                 # In the event that the label is empty (which is not expected
                 # but could happen in unforeseen corner cases), we should just
                 # skip to the next label.
-                if self.text[axis][i] == '':
+                if self.text[axis][i] == "":
                     continue
 
-                x, y = self.pixel[axis][i]
+                x, y = self._frame.parent_axes.transData.transform(self.data[axis][i])
                 pad = renderer.points_to_pixels(self.get_pad() + tick_out_size)
 
                 if isinstance(self._frame, RectangularFrame):
                     # This is just to preserve the current results, but can be
                     # removed next time the reference images are re-generated.
-                    if np.abs(self.angle[axis][i]) < 45.:
-                        ha = 'right'
-                        va = 'bottom'
+                    if np.abs(self.angle[axis][i]) < 45.0:
+                        ha = "right"
+                        va = "bottom"
                         dx = -pad
                         dy = -text_size * 0.5
-                    elif np.abs(self.angle[axis][i] - 90.) < 45:
-                        ha = 'center'
-                        va = 'bottom'
+                    elif np.abs(self.angle[axis][i] - 90.0) < 45:
+                        ha = "center"
+                        va = "bottom"
                         dx = 0
                         dy = -text_size - pad
-                    elif np.abs(self.angle[axis][i] - 180.) < 45:
-                        ha = 'left'
-                        va = 'bottom'
+                    elif np.abs(self.angle[axis][i] - 180.0) < 45:
+                        ha = "left"
+                        va = "bottom"
                         dx = pad
                         dy = -text_size * 0.5
                     else:
-                        ha = 'center'
-                        va = 'bottom'
+                        ha = "center"
+                        va = "bottom"
                         dx = 0
                         dy = pad
 
@@ -199,13 +242,13 @@ class TickLabels(Text):
                     ay = np.sin(np.radians(self.angle[axis][i]))
 
                     # Set anchor point for label
-                    if np.abs(self.angle[axis][i]) < 45.:
+                    if np.abs(self.angle[axis][i]) < 45.0:
                         dx = width
                         dy = ay * height
-                    elif np.abs(self.angle[axis][i] - 90.) < 45:
+                    elif np.abs(self.angle[axis][i] - 90.0) < 45:
                         dx = ax * width
                         dy = height
-                    elif np.abs(self.angle[axis][i] - 180.) < 45:
+                    elif np.abs(self.angle[axis][i] - 180.0) < 45:
                         dx = -width
                         dy = ay * height
                     else:
@@ -229,8 +272,8 @@ class TickLabels(Text):
                     x = x - dx
                     y = y - dy
 
-                    ha = 'center'
-                    va = 'center'
+                    ha = "center"
+                    va = "center"
 
                 self.xy[axis][i] = (x, y)
                 self.ha[axis][i] = ha
@@ -243,7 +286,7 @@ class TickLabels(Text):
         Get the bounding box of an individual label. n.b. _set_xy_alignment()
         must be called before this method.
         """
-        if self.text[axis][i] == '':
+        if self.text[axis][i] == "":
             return
 
         self.set_text(self.text[axis][i])

@@ -1,13 +1,11 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
-# -*- coding: utf-8 -*-
 from astropy.coordinates import SkyCoord
-from astropy.io.misc.asdf.tags.helpers import skycoord_equal
-
-from ...types import AstropyType
+from astropy.coordinates.tests.helper import skycoord_equal
+from astropy.io.misc.asdf.types import AstropyType
 
 
 class SkyCoordType(AstropyType):
-    name = 'coordinates/skycoord'
+    name = "coordinates/skycoord"
     types = [SkyCoord]
     version = "1.0.0"
 

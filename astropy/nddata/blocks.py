@@ -7,7 +7,7 @@ import numpy as np
 
 from .decorators import support_nddata
 
-__all__ = ['reshape_as_blocks', 'block_reduce', 'block_replicate']
+__all__ = ["reshape_as_blocks", "block_reduce", "block_replicate"]
 
 
 def _process_block_inputs(data, block_size):
@@ -15,18 +15,20 @@ def _process_block_inputs(data, block_size):
     block_size = np.atleast_1d(block_size)
 
     if np.any(block_size <= 0):
-        raise ValueError('block_size elements must be strictly positive')
+        raise ValueError("block_size elements must be strictly positive")
 
     if data.ndim > 1 and len(block_size) == 1:
         block_size = np.repeat(block_size, data.ndim)
 
     if len(block_size) != data.ndim:
-        raise ValueError('block_size must be a scalar or have the same '
-                         'length as the number of data dimensions')
+        raise ValueError(
+            "block_size must be a scalar or have the same "
+            "length as the number of data dimensions"
+        )
 
     block_size_int = block_size.astype(int)
     if np.any(block_size_int != block_size):  # e.g., 2.0 is OK, 2.1 is not
-        raise ValueError('block_size elements must be integers')
+        raise ValueError("block_size elements must be integers")
 
     return data, block_size_int
 
@@ -78,12 +80,13 @@ def reshape_as_blocks(data, block_size):
             [[10, 11],
              [14, 15]]]])
     """
-
     data, block_size = _process_block_inputs(data, block_size)
 
     if np.any(np.mod(data.shape, block_size) != 0):
-        raise ValueError('Each dimension of block_size must divide evenly '
-                         'into the corresponding dimension of data')
+        raise ValueError(
+            "Each dimension of block_size must divide evenly "
+            "into the corresponding dimension of data"
+        )
 
     nblocks = np.array(data.shape) // block_size
     new_shape = tuple(k for ij in zip(nblocks, block_size) for k in ij)
@@ -113,17 +116,19 @@ def block_reduce(data, block_size, func=np.sum):
         ``block_size`` will be used for for every axis.
 
     func : callable, optional
-        The method to use to downsample the data.  Must be a callable
-        that takes in a `~numpy.ndarray` along with an ``axis`` keyword,
-        which defines the axis or axes along which the function is
-        applied.  The ``axis`` keyword must accept multiple axes as a
-        tuple.  The default is `~numpy.sum`, which provides block
-        summation (and conserves the data sum).
+        The method to use to downsample the data. Must be a callable
+        that takes in a 4D `~numpy.ndarray` (the 2D `~numpy.ndarray`
+        input into `block_reduce` gets reshaped as 4D) and has an
+        ``axis`` keyword that accepts tuples. This function will be
+        called with ``axis=(2, 3)`` and it should return a 2D array. The
+        default is `~numpy.sum`, which provides block summation (and
+        conserves the data sum).
 
     Returns
     -------
     output : array-like
-        The resampled data.
+        The resampled data. Note the depending on the input ``func``,
+        the dtype of the output array may not match the input array.
 
     Examples
     --------
@@ -138,7 +143,6 @@ def block_reduce(data, block_size, func=np.sum):
     array([[  2.5,   4.5],
            [ 10.5,  12.5]])
     """
-
     data, block_size = _process_block_inputs(data, block_size)
     nblocks = np.array(data.shape) // block_size
     size_init = nblocks * block_size  # evenly-divisible size
@@ -147,7 +151,7 @@ def block_reduce(data, block_size, func=np.sum):
     for axis in range(data.ndim):
         if data.shape[axis] != size_init[axis]:
             data = data.swapaxes(0, axis)
-            data = data[:size_init[axis]]
+            data = data[: size_init[axis]]
             data = data.swapaxes(0, axis)
 
     reshaped = reshape_as_blocks(data, block_size)
@@ -178,7 +182,8 @@ def block_replicate(data, block_size, conserve_sum=True):
     Returns
     -------
     output : array-like
-        The block-replicated data.
+        The block-replicated data. Note that when ``conserve_sum`` is
+        `True`, the dtype of the output array will be float.
 
     Examples
     --------
@@ -197,12 +202,12 @@ def block_replicate(data, block_size, conserve_sum=True):
            [2., 2., 3., 3.],
            [2., 2., 3., 3.]])
     """
-
     data, block_size = _process_block_inputs(data, block_size)
     for i in range(data.ndim):
         data = np.repeat(data, block_size[i], axis=i)
 
     if conserve_sum:
-        data = data / float(np.prod(block_size))
+        # in-place division can fail due to dtype casting rule
+        data = data / np.prod(block_size)
 
     return data
