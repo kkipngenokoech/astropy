@@ -109,6 +109,12 @@ fine control of the way to write out certain columns, for instance
 writing an ISO format Time column as a pair of JD1/JD2 floating
 point values (for full resolution) or as a formatted ISO date string.
 
+Both the :meth:`~astropy.table.Table.read` and
+:meth:`~astropy.table.Table.write` methods can accept file paths of the form
+``~/data/file.csv`` or ``~username/data/file.csv``. These tilde-prefixed paths
+are expanded in the same way as is done by many command-line utilities, to
+represent the home directory of the current or specified user, respectively.
+
 ..
   EXAMPLE END
 
@@ -481,7 +487,8 @@ sentinel values according to the FITS standard:
 
 When the file is read back those elements are marked as masked in the returned
 table, but see `issue #4708 <https://github.com/astropy/astropy/issues/4708>`_
-for problems in all three cases.
+for problems in all three cases. It is possible to deactivate the masking with
+``mask_invalid=False``.
 
 The FITS standard has a few limitations:
 
@@ -964,6 +971,43 @@ used to ensure that the data is compressed on disk::
 
 .. doctest-skip-all
 
+Metadata and Mixin Columns
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``astropy`` tables can contain metadata, both in the table ``meta`` attribute
+(which is an ordered dictionary of arbitrary key/value pairs), and within the
+columns, which each have attributes ``unit``, ``format``, ``description``,
+and ``meta``.
+
+By default, when writing a table to HDF5 the code will attempt to store each
+key/value pair within the table ``meta`` as HDF5 attributes of the table
+dataset. This will fail if the values within ``meta`` are not objects that can
+be stored as HDF5 attributes. In addition, if the table columns being stored
+have defined values for any of the above-listed column attributes, these
+metadata will *not* be stored and a warning will be issued.
+
+serialize_meta
+~~~~~~~~~~~~~~
+
+To enable storing all table and column metadata to the HDF5 file, call
+the ``write()`` method with ``serialize_meta=True``. This will store metadata
+in a separate HDF5 dataset, contained in the same file, which is named
+``<path>.__table_column_meta__``. Here ``path`` is the argument provided in
+the call to ``write()``::
+
+    >>> t.write('observations.hdf5', path='data', serialize_meta=True)
+
+The table metadata are stored as a dataset of strings by serializing the
+metadata in YAML following the `ECSV header format
+<https://github.com/astropy/astropy-APEs/blob/main/APE6.rst#header-details>`_
+definition. Since there are YAML parsers for most common languages, one can
+easily access and use the table metadata if reading the HDF5 in a non-astropy
+application.
+
+As of ``astropy`` 3.0, by specifying ``serialize_meta=True`` one can also store
+to HDF5 tables that contain :ref:`mixin_columns` such as `~astropy.time.Time` or
+`~astropy.coordinates.SkyCoord` columns.
+
 .. _table_io_parquet:
 
 Parquet
@@ -1014,43 +1058,6 @@ To read only a subset of the columns, use the ``include_names`` and/or ``exclude
 
 ..
   EXAMPLE END
-
-Metadata and Mixin Columns
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-``astropy`` tables can contain metadata, both in the table ``meta`` attribute
-(which is an ordered dictionary of arbitrary key/value pairs), and within the
-columns, which each have attributes ``unit``, ``format``, ``description``,
-and ``meta``.
-
-By default, when writing a table to HDF5 the code will attempt to store each
-key/value pair within the table ``meta`` as HDF5 attributes of the table
-dataset. This will fail if the values within ``meta`` are not objects that can
-be stored as HDF5 attributes. In addition, if the table columns being stored
-have defined values for any of the above-listed column attributes, these
-metadata will *not* be stored and a warning will be issued.
-
-serialize_meta
-~~~~~~~~~~~~~~
-
-To enable storing all table and column metadata to the HDF5 file, call
-the ``write()`` method with ``serialize_meta=True``. This will store metadata
-in a separate HDF5 dataset, contained in the same file, which is named
-``<path>.__table_column_meta__``. Here ``path`` is the argument provided in
-the call to ``write()``::
-
-    >>> t.write('observations.hdf5', path='data', serialize_meta=True)
-
-The table metadata are stored as a dataset of strings by serializing the
-metadata in YAML following the `ECSV header format
-<https://github.com/astropy/astropy-APEs/blob/main/APE6.rst#header-details>`_
-definition. Since there are YAML parsers for most common languages, one can
-easily access and use the table metadata if reading the HDF5 in a non-astropy
-application.
-
-As of ``astropy`` 3.0, by specifying ``serialize_meta=True`` one can also store
-to HDF5 tables that contain :ref:`mixin_columns` such as `~astropy.time.Time` or
-`~astropy.coordinates.SkyCoord` columns.
 
 .. _table_io_pandas:
 

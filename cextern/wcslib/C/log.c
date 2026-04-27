@@ -1,6 +1,6 @@
 /*============================================================================
-  WCSLIB 7.7 - an implementation of the FITS WCS standard.
-  Copyright (C) 1995-2021, Mark Calabretta
+  WCSLIB 7.12 - an implementation of the FITS WCS standard.
+  Copyright (C) 1995-2022, Mark Calabretta
 
   This file is part of WCSLIB.
 
@@ -19,7 +19,7 @@
 
   Author: Mark Calabretta, Australia Telescope National Facility, CSIRO.
   http://www.atnf.csiro.au/people/Mark.Calabretta
-  $Id: log.c,v 7.7 2021/07/12 06:36:49 mcalabre Exp $
+  $Id: log.c,v 7.12 2022/09/09 04:57:58 mcalabre Exp $
 *===========================================================================*/
 
 #include <math.h>
@@ -60,9 +60,9 @@ int logx2s(
   xp = x;
   logcp = logc;
   statp = stat;
-  for (ix = 0; ix < nx; ix++, xp += sx, logcp += slogc) {
+  for (ix = 0; ix < nx; ix++, xp += sx, logcp += slogc, statp++) {
     *logcp = crval * exp((*xp) / crval);
-    *(statp++) = 0;
+    *statp = 0;
   }
 
   return 0;
@@ -95,13 +95,13 @@ int logs2x(
   logcp = logc;
   statp = stat;
   status = 0;
-  for (ilogc = 0; ilogc < nlogc; ilogc++, logcp += slogc, xp += sx) {
+  for (ilogc = 0; ilogc < nlogc; ilogc++, logcp += slogc, xp += sx, statp++) {
     if (*logcp > 0.0) {
       *xp = crval * log(*logcp / crval);
-      *(statp++) = 0;
+      *statp = 0;
     } else {
-      *(statp++) = 1;
       status = LOGERR_BAD_WORLD;
+      *statp = 1;
     }
   }
 
