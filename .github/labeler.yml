@@ -17,7 +17,6 @@ testing:
   - codecov.yml
   - conftest.py
   - '**/conftest.py'
-  - azure-pipelines.yml
   - tox.ini
   - .circleci/*
   - .github/**/*.yml
@@ -143,3 +142,9 @@ wcs:
 wcs.wcsapi:
   - astropy/wcs/wcsapi/**/*
   - docs/wcs/wcsapi.rst
+
+dev-automation:
+  - .pre-commit-config.yaml
+
+skip-changelog-checks:
+  - .pre-commit-config.yaml

@@ -11,7 +11,7 @@ import pytest
 import astropy.units as u
 from astropy.cosmology import units as cu
 from astropy.cosmology.connect import readwrite_registry
-from astropy.cosmology.core import _COSMOLOGY_CLASSES, Cosmology
+from astropy.cosmology.core import Cosmology
 
 from .base import ReadWriteDirectTestBase, ReadWriteTestMixinBase
 
@@ -33,7 +33,7 @@ def read_json(filename, **kwargs):
     """
     # read
     if isinstance(filename, (str, bytes, os.PathLike)):
-        with open(filename, "r") as file:
+        with open(filename) as file:
             data = file.read()
     else:  # file-like : this also handles errors in dumping
         data = filename.read()
@@ -74,7 +74,7 @@ def write_json(cosmology, file, *, overwrite=False):
 
     # check that file exists and whether to overwrite.
     if os.path.exists(file) and not overwrite:
-        raise IOError(f"{file} exists. Set 'overwrite' to write over.")
+        raise OSError(f"{file} exists. Set 'overwrite' to write over.")
     with open(file, "w") as write_file:
         json.dump(data, write_file)
 
@@ -102,7 +102,9 @@ class ReadWriteJSONTestMixin(ReadWriteTestMixinBase):
         # Register
         readwrite_registry.register_reader("json", Cosmology, read_json, force=True)
         readwrite_registry.register_writer("json", Cosmology, write_json, force=True)
-        readwrite_registry.register_identifier("json", Cosmology, json_identify, force=True)
+        readwrite_registry.register_identifier(
+            "json", Cosmology, json_identify, force=True
+        )
 
         yield  # Run all tests in class
 
@@ -113,8 +115,9 @@ class ReadWriteJSONTestMixin(ReadWriteTestMixinBase):
 
     # ========================================================================
 
-    def test_readwrite_json_subclass_partial_info(self, cosmo_cls, cosmo, read,
-                                                  write, tmp_path, add_cu):
+    def test_readwrite_json_subclass_partial_info(
+        self, cosmo_cls, cosmo, read, write, tmp_path, add_cu
+    ):
         """
         Test writing from an instance and reading from that class.
         This works with missing information.
@@ -125,11 +128,15 @@ class ReadWriteJSONTestMixin(ReadWriteTestMixinBase):
         cosmo.write(fp, format="json")
 
         # partial information
-        with open(fp, "r") as file:
+        with open(fp) as file:
             L = file.readlines()[0]
-        L = L[: L.index('"cosmology":')] + L[L.index(", ") + 2 :]  # remove cosmology
+        L = (
+            L[: L.index('"cosmology":')] + L[L.index(", ") + 2 :]
+        )  # remove cosmology  : #203
         i = L.index('"Tcmb0":')  # delete Tcmb0
-        L = L[:i] + L[L.index(", ", L.index(", ", i) + 1) + 2 :]  # second occurence
+        L = (
+            L[:i] + L[L.index(", ", L.index(", ", i) + 1) + 2 :]
+        )  # second occurrence  : #203
 
         tempfname = tmp_path / f"{cosmo.name}_temp.json"
         with open(tempfname, "w") as file:

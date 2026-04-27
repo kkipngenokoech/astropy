@@ -3,11 +3,9 @@
 import copy
 from collections import defaultdict
 
-import numpy as np
-
-from astropy.table import Row, QTable
 from astropy.cosmology.connect import convert_registry
 from astropy.cosmology.core import Cosmology
+from astropy.table import QTable, Row
 
 from .mapping import from_mapping
 
@@ -47,9 +45,9 @@ def from_row(row, *, move_to_meta=False, cosmology=None):
         >>> cr = Planck18.to_format("astropy.row")
         >>> cr
         <Row index=0>
-          cosmology     name        H0        Om0    Tcmb0    Neff    m_nu [3]    Ob0
+          cosmology     name        H0        Om0    Tcmb0    Neff      m_nu      Ob0
                                km / (Mpc s)            K                 eV
-            str13       str8     float64    float64 float64 float64   float64   float64
+            str13       str8     float64    float64 float64 float64  float64[3] float64
         ------------- -------- ------------ ------- ------- ------- ----------- -------
         FlatLambdaCDM Planck18        67.66 0.30966  2.7255   3.046 0.0 .. 0.06 0.04897
 
@@ -62,7 +60,7 @@ def from_row(row, *, move_to_meta=False, cosmology=None):
                       Tcmb0=2.7255 K, Neff=3.046, m_nu=[0. 0. 0.06] eV, Ob0=0.04897)
     """
     # special values
-    name = row['name'] if 'name' in row.columns else None  # get name from column
+    name = row["name"] if "name" in row.columns else None  # get name from column
 
     meta = defaultdict(dict, copy.deepcopy(row.meta))
     # Now need to add the Columnar metadata. This is only available on the
@@ -114,9 +112,9 @@ def to_row(cosmology, *args, cosmology_in_meta=False, table_cls=QTable):
         >>> cr = Planck18.to_format("astropy.row")
         >>> cr
         <Row index=0>
-          cosmology     name        H0        Om0    Tcmb0    Neff    m_nu [3]    Ob0
+          cosmology     name        H0        Om0    Tcmb0    Neff      m_nu      Ob0
                                km / (Mpc s)            K                 eV
-            str13       str8     float64    float64 float64 float64   float64   float64
+            str13       str8     float64    float64 float64 float64  float64[3] float64
         ------------- -------- ------------ ------- ------- ------- ----------- -------
         FlatLambdaCDM Planck18        67.66 0.30966  2.7255   3.046 0.0 .. 0.06 0.04897
 

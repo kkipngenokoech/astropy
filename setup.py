@@ -30,7 +30,7 @@ For more information, see:
   https://docs.astropy.org/en/latest/development/testguide.html#running-tests
 """
 
-if 'test' in sys.argv:
+if "test" in sys.argv:
     print(TEST_HELP)
     sys.exit(1)
 
@@ -55,14 +55,15 @@ For more information, see:
   https://docs.astropy.org/en/latest/install.html#builddocs
 """
 
-if 'build_docs' in sys.argv or 'build_sphinx' in sys.argv:
+if "build_docs" in sys.argv or "build_sphinx" in sys.argv:
     print(DOCS_HELP)
     sys.exit(1)
 
 
 # Only import these if the above checks are okay
 # to avoid masking the real problem with import error.
-from setuptools import setup  # noqa
-from extension_helpers import get_extensions  # noqa
+from setuptools import setup  # noqa: E402
+
+from extension_helpers import get_extensions  # noqa: E402
 
 setup(ext_modules=get_extensions())

@@ -5,17 +5,25 @@
 
 
 from .core import DefaultSplitter
-from .fixedwidth import (FixedWidth,
-                         FixedWidthData,
-                         FixedWidthHeader,
-                         FixedWidthTwoLineDataSplitter)
+from .fixedwidth import (
+    FixedWidth,
+    FixedWidthData,
+    FixedWidthHeader,
+    FixedWidthTwoLineDataSplitter,
+)
 
 
 class SimpleRSTHeader(FixedWidthHeader):
     position_line = 0
     start_line = 1
     splitter_class = DefaultSplitter
-    position_char = '='
+    position_char = "="
+
+    def __init__(self, header_start=0):
+        super().__init__()
+        self.header_start = header_start
+        if header_start > 0:
+            self.start_line = header_start + 1
 
     def get_fixedwidth_params(self, line):
         vals, starts, ends = super().get_fixedwidth_params(line)
@@ -28,6 +36,12 @@ class SimpleRSTData(FixedWidthData):
     start_line = 3
     end_line = -1
     splitter_class = FixedWidthTwoLineDataSplitter
+
+    def __init__(self, header_start=0):
+        super().__init__()
+        self.header_start = header_start
+        if header_start > 0:
+            self.start_line = header_start + 3
 
 
 class RST(FixedWidth):
@@ -48,14 +62,25 @@ class RST(FixedWidth):
     or for ones which define column spans through the use of an additional
     line of dashes in the header.
 
+    Parameters
+    ----------
+    header_start : int, optional
+        Line index for the header row (0-based). Default is 0, which means
+        the header is on the first line after the separator. Setting to a
+        higher value allows data rows before the header row.
+
     """
-    _format_name = 'rst'
-    _description = 'reStructuredText simple table'
+
+    _format_name = "rst"
+    _description = "reStructuredText simple table"
     data_class = SimpleRSTData
     header_class = SimpleRSTHeader
 
-    def __init__(self):
+    def __init__(self, header_start=0):
         super().__init__(delimiter_pad=None, bookend=False)
+        self.header_start = header_start
+        self.data_class = type(self.data_class)(header_start=header_start)
+        self.header_class = type(self.header_class)(header_start=header_start)
 
     def write(self, lines):
         lines = super().write(lines)

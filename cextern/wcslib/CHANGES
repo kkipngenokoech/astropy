@@ -1,3 +1,102 @@
+WCSLIB version 7.12 (2022/09/09)
+--------------------------------
+
+* C library
+
+  - In wcsp2s() and wcss2p(), fixed handling of status returns from
+    linp2x() and linx2p() relating to distortion functions, specifically
+    with respect to setting the stat[] vector.  Reported by Sepideh
+    Eskandarlou (via Mohammad Akhlaghi).
+
+  - When extracting by axis type, wcssub() did not account for the
+    possibility of time axes with -TAB or -LOG algorithm codes.
+    Reported by Mihai Cara.
+
+* Utilities
+
+  - Fixed a bit of confusion in wcsgrid relating to cfitsio file opening
+    syntax, e.g. file.fits+1.  It now matches wcsware in that regard.
+
+  - Portability fix - need to define _POSIX_C_SOURCE as 199506L in order
+    to get the declaration of localtime_r().  Reported by Marc Espie.
+
+* User manual
+
+  - Documentation generation moved to doxygen 1.9.5 (was 1.9.3).
+
+
+WCSLIB version 7.11 (2022/04/26)
+--------------------------------
+
+* C library
+
+  - In tabini(), the default index array should contain a 1-relative
+    sequence: {1, 2,... N}.  Previously it was 0-relative.
+
+
+WCSLIB version 7.10 (2022/04/24)
+--------------------------------
+
+* C library
+
+  - In tabcpy(), collapse degenerate table index arrays if they are
+    collapsed in the source struct.  Minor fix for output formatting
+    in tabprt().
+
+  - In the C test suite, added calls to wcstrim() in twcsfix to tidy
+    the structs before printing.
+
+* Utilities
+
+  - The default option in wcsware now trims the wcsprm struct before
+    printing it.  Use the '-p' option to print the untrimmed struct.
+
+
+WCSLIB version 7.9 (2022/03/26)
+-------------------------------
+
+* C library
+
+  - In wcsset(), bug fix for identifying time coordinate axes.
+    Reported by Mihai Cara with patch.
+
+
+WCSLIB version 7.8 (2022/03/25)
+-------------------------------
+
+* C library
+
+  - In wcssub(), bug fix for tabular coordinates that change axis
+    number, thus requiring tabprm::map to be updated.  Reported by
+    Mihai Cara with patch.
+
+    Also in wcssub():
+      - check that all axes of a multi-dimensional table are extracted
+        together,
+      - fixed potential memory leaks for tabular coordinate axes when
+        an attempt to subimage non-separable axes fails,
+      - the error messages for non-separable coordinate systems are
+        generally more informative,
+      - subimage extraction by coordinate type now recognises time
+        coordinate axis types via WCSSUB_TIME.
+
+  - wcsset() now identifies time coordinate axes in wcsprm::types.
+
+  - Extended test program twcssub to test the above modifications.
+
+* Installation
+
+  - Bug fix in the utils makefile for creating $(MANDIR)/man1.
+    Reported by Aleksander Kurek.
+
+  - Bug fix in the Fortran makefile for compiling and using 'tofits'.
+    Reported by Stefan Brüns.
+
+* User manual
+
+  - Documentation generation moved to doxygen 1.9.3 (was 1.9.1).
+
+
 WCSLIB version 7.7 (2021/07/12)
 -------------------------------
 
@@ -10,7 +109,7 @@ WCSLIB version 7.7 (2021/07/12)
     that caused it to be overly enthusiastic in stripping leading zeroes
     off addresses of function pointers.
 
-  - In wcspcx(), replaced variable length arrays will allocated memory
+  - In wcspcx(), replaced variable length arrays with allocated memory
     (portability issue).  Reported by Mihai Cara with patch.
 
   - Fixed buglets in wcsbth() and linsize() uncovered by gcc 11.1.0.
@@ -3263,4 +3362,4 @@ WCSLIB version 1.0 (1995/01/31)
   Initial release.
 
 ------------------------------------------------------------------------
-$Id: CHANGES,v 7.7 2021/07/12 06:36:49 mcalabre Exp $
+$Id: CHANGES,v 7.12 2022/09/09 04:57:58 mcalabre Exp $

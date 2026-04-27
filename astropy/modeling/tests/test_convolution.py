@@ -1,20 +1,14 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 # pylint: disable=invalid-name
-import pytest
 import numpy as np
+import pytest
 
 from astropy.convolution import convolve_models_fft
 from astropy.modeling.models import Const1D, Const2D
-
-try:
-    import scipy  # pylint: disable=W0611 # noqa
-except ImportError:
-    HAS_SCIPY = False
-else:
-    HAS_SCIPY = True
+from astropy.utils.compat.optional_deps import HAS_SCIPY
 
 
-@pytest.mark.skipif('not HAS_SCIPY')
+@pytest.mark.skipif(not HAS_SCIPY, reason="requires scipy")
 def test_clear_cache():
     m1 = Const1D()
     m2 = Const1D()
@@ -24,7 +18,7 @@ def test_clear_cache():
     assert model._convolution is None
 
     results = model(0)
-    assert results.all() == np.array([1.]).all()
+    assert results.all() == np.array([1.0]).all()
     assert model._kwargs is not None
     assert model._convolution is not None
 
@@ -33,7 +27,7 @@ def test_clear_cache():
     assert model._convolution is None
 
 
-@pytest.mark.skipif('not HAS_SCIPY')
+@pytest.mark.skipif(not HAS_SCIPY, reason="requires scipy")
 def test_input_shape_1d():
     m1 = Const1D()
     m2 = Const1D()
@@ -48,7 +42,7 @@ def test_input_shape_1d():
     assert results.shape == x.shape
 
 
-@pytest.mark.skipif('not HAS_SCIPY')
+@pytest.mark.skipif(not HAS_SCIPY, reason="requires scipy")
 def test_input_shape_2d():
     m1 = Const2D()
     m2 = Const2D()
@@ -70,7 +64,7 @@ def test_input_shape_2d():
     assert results.shape == grid[1].shape
 
 
-@pytest.mark.skipif('not HAS_SCIPY')
+@pytest.mark.skipif(not HAS_SCIPY, reason="requires scipy")
 def test__convolution_inputs():
     m1 = Const2D()
     m2 = Const2D()
@@ -86,15 +80,17 @@ def test__convolution_inputs():
     assert (np.array([1]), (1,)) == model._convolution_inputs(1)
 
     # Multiple inputs
-    assert np.all(model._convolution_inputs(*grid0)[0] ==
-                  np.reshape([grid0[0], grid0[1]], (2, -1)).T)
+    assert np.all(
+        model._convolution_inputs(*grid0)[0]
+        == np.reshape([grid0[0], grid0[1]], (2, -1)).T
+    )
     assert model._convolution_inputs(*grid0)[1] == grid0[0].shape
-    assert np.all(model._convolution_inputs(*grid1)[0] ==
-                  np.reshape([grid1[0], grid1[1]], (2, -1)).T)
+    assert np.all(
+        model._convolution_inputs(*grid1)[0]
+        == np.reshape([grid1[0], grid1[1]], (2, -1)).T
+    )
     assert model._convolution_inputs(*grid1)[1] == grid1[0].shape
 
     # Error
-    with pytest.raises(ValueError) as err:
+    with pytest.raises(ValueError, match=r"Values have differing shapes"):
         model._convolution_inputs(grid0[0], grid1[1])
-    assert str(err.value) ==\
-        "Values have differing shapes"

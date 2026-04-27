@@ -7,10 +7,16 @@ Ported from the astroML project: https://www.astroml.org/
 """
 
 import numpy as np
-from . import bayesian_blocks
 
-__all__ = ['histogram', 'scott_bin_width', 'freedman_bin_width',
-           'knuth_bin_width', 'calculate_bin_edges']
+from .bayesian_blocks import bayesian_blocks
+
+__all__ = [
+    "histogram",
+    "scott_bin_width",
+    "freedman_bin_width",
+    "knuth_bin_width",
+    "calculate_bin_edges",
+]
 
 
 def calculate_bin_edges(a, bins=10, range=None, weights=None):
@@ -52,16 +58,17 @@ def calculate_bin_edges(a, bins=10, range=None, weights=None):
         # TODO: if weights is specified, we need to modify things.
         #       e.g. we could use point measures fitness for Bayesian blocks
         if weights is not None:
-            raise NotImplementedError("weights are not yet supported "
-                                      "for the enhanced histogram")
+            raise NotImplementedError(
+                "weights are not yet supported for the enhanced histogram"
+            )
 
-        if bins == 'blocks':
+        if bins == "blocks":
             bins = bayesian_blocks(a)
-        elif bins == 'knuth':
+        elif bins == "knuth":
             da, bins = knuth_bin_width(a, True)
-        elif bins == 'scott':
+        elif bins == "scott":
             da, bins = scott_bin_width(a, True)
-        elif bins == 'freedman':
+        elif bins == "freedman":
             da, bins = freedman_bin_width(a, True)
         else:
             raise ValueError(f"unrecognized bin code: '{bins}'")
@@ -259,12 +266,13 @@ def freedman_bin_width(data, return_bins=False):
         try:
             bins = dmin + dx * np.arange(Nbins + 1)
         except ValueError as e:
-            if 'Maximum allowed size exceeded' in str(e):
+            if "Maximum allowed size exceeded" in str(e):
                 raise ValueError(
-                    'The inter-quartile range of the data is too small: '
-                    'failed to construct histogram with {} bins. '
-                    'Please use another bin method, such as '
-                    'bins="scott"'.format(Nbins + 1))
+                    "The inter-quartile range of the data is too small: "
+                    f"failed to construct histogram with {Nbins + 1} bins. "
+                    "Please use another bin method, such as "
+                    'bins="scott"'
+                )
             else:  # Something else  # pragma: no cover
                 raise
         return dx, bins
@@ -360,6 +368,7 @@ class _KnuthF:
     --------
     knuth_bin_width
     """
+
     def __init__(self, data):
         self.data = np.array(data, copy=True)
         if self.data.ndim != 1:
@@ -404,8 +413,10 @@ class _KnuthF:
         bins = self.bins(M)
         nk, bins = np.histogram(self.data, bins)
 
-        return -(self.n * np.log(M) +
-                 self.gammaln(0.5 * M) -
-                 M * self.gammaln(0.5) -
-                 self.gammaln(self.n + 0.5 * M) +
-                 np.sum(self.gammaln(nk + 0.5)))
+        return -(
+            self.n * np.log(M)
+            + self.gammaln(0.5 * M)
+            - M * self.gammaln(0.5)
+            - self.gammaln(self.n + 0.5 * M)
+            + np.sum(self.gammaln(nk + 0.5))
+        )

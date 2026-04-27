@@ -37,14 +37,18 @@ Example uses of fitsheader:
     $ fitsheader --keyword ESO.INS.ID filename.fits
     $ fitsheader --keyword "ESO INS ID" filename.fits
 
-8. Compare the headers of different fites files, following ESO's ``fitsort``
+8. Compare the headers of different fits files, following ESO's ``fitsort``
    format::
 
     $ fitsheader --fitsort --extension 0 --keyword ESO.INS.ID *.fits
 
 9. Same as above, sorting the output along a specified keyword::
 
-    $ fitsheader -f DATE-OBS -e 0 -k DATE-OBS -k ESO.INS.ID *.fits
+    $ fitsheader -f -s DATE-OBS -e 0 -k DATE-OBS -k ESO.INS.ID *.fits
+
+10. Sort first by OBJECT, then DATE-OBS::
+
+    $ fitsheader -f -s OBJECT -s DATE-OBS *.fits
 
 Note that compressed images (HDUs of type
 :class:`~astropy.io.fits.CompImageHDU`) really have two headers: a real
@@ -57,14 +61,13 @@ With Astropy installed, please run ``fitsheader --help`` to see the full usage
 documentation.
 """
 
-import sys
 import argparse
+import sys
 
 import numpy as np
 
+from astropy import __version__, log
 from astropy.io import fits
-from astropy import log, __version__
-
 
 DESCRIPTION = """
 Print the header(s) of a FITS file. Optional arguments allow the desired
@@ -80,6 +83,7 @@ for further documentation.
 
 class ExtensionNotFoundException(Exception):
     """Raised if an HDU extension requested by the user does not exist."""
+
     pass
 
 
@@ -146,9 +150,9 @@ class HeaderFormatter:
                     hdukeys.append(int(ext))
                 except ValueError:
                     # The user can specify "EXTNAME" or "EXTNAME,EXTVER"
-                    parts = ext.split(',')
+                    parts = ext.split(",")
                     if len(parts) > 1:
-                        extname = ','.join(parts[0:-1])
+                        extname = ",".join(parts[0:-1])
                         extver = int(parts[-1])
                         hdukeys.append((extname, extver))
                     else:
@@ -158,8 +162,7 @@ class HeaderFormatter:
         return self._parse_internal(hdukeys, keywords, compressed)
 
     def _parse_internal(self, hdukeys, keywords, compressed):
-        """The meat of the formatting; in a separate method to allow overriding.
-        """
+        """The meat of the formatting; in a separate method to allow overriding."""
         result = []
         for idx, hdu in enumerate(hdukeys):
             try:
@@ -168,11 +171,11 @@ class HeaderFormatter:
                 continue
 
             if idx > 0:  # Separate HDUs by a blank line
-                result.append('\n')
-            result.append(f'# HDU {hdu} in {self.filename}:\n')
+                result.append("\n")
+            result.append(f"# HDU {hdu} in {self.filename}:\n")
             for c in cards:
-                result.append(f'{c}\n')
-        return ''.join(result)
+                result.append(f"{c}\n")
+        return "".join(result)
 
     def _get_cards(self, hdukey, keywords, compressed):
         """Returns a list of `astropy.io.fits.card.Card` objects.
@@ -206,7 +209,7 @@ class HeaderFormatter:
             else:
                 header = self._hdulist[hdukey].header
         except (IndexError, KeyError):
-            message = f'{self.filename}: Extension {hdukey} not found.'
+            message = f"{self.filename}: Extension {hdukey} not found."
             if self.verbose:
                 log.warning(message)
             raise ExtensionNotFoundException(message)
@@ -224,11 +227,11 @@ class HeaderFormatter:
                         cards.extend(crd)
                 except KeyError:  # Keyword does not exist
                     if self.verbose:
-                        log.warning('{filename} (HDU {hdukey}): '
-                                    'Keyword {kw} not found.'.format(
-                                        filename=self.filename,
-                                        hdukey=hdukey,
-                                        kw=kw))
+                        log.warning(
+                            "{filename} (HDU {hdukey}): Keyword {kw} not found.".format(
+                                filename=self.filename, hdukey=hdukey, kw=kw
+                            )
+                        )
         return cards
 
     def close(self):
@@ -249,15 +252,20 @@ class TableHeaderFormatter(HeaderFormatter):
         for hdu in hdukeys:
             try:
                 for card in self._get_cards(hdu, keywords, compressed):
-                    tablerows.append({'filename': self.filename,
-                                      'hdu': hdu,
-                                      'keyword': card.keyword,
-                                      'value': str(card.value)})
+                    tablerows.append(
+                        {
+                            "filename": self.filename,
+                            "hdu": hdu,
+                            "keyword": card.keyword,
+                            "value": str(card.value),
+                        }
+                    )
             except ExtensionNotFoundException:
                 pass
 
         if tablerows:
             from astropy import table
+
             return table.Table(tablerows)
         return None
 
@@ -271,15 +279,15 @@ def print_headers_traditional(args):
         Arguments passed from the command-line as defined below.
     """
     for idx, filename in enumerate(args.filename):  # support wildcards
-        if idx > 0 and not args.keywords:
+        if idx > 0 and not args.keyword:
             print()  # print a newline between different files
 
         formatter = None
         try:
             formatter = HeaderFormatter(filename)
-            print(formatter.parse(args.extensions,
-                                  args.keywords,
-                                  args.compressed), end='')
+            print(
+                formatter.parse(args.extensions, args.keyword, args.compressed), end=""
+            )
         except OSError as e:
             log.error(str(e))
         finally:
@@ -301,9 +309,7 @@ def print_headers_as_table(args):
         formatter = None
         try:
             formatter = TableHeaderFormatter(filename)
-            tbl = formatter.parse(args.extensions,
-                                  args.keywords,
-                                  args.compressed)
+            tbl = formatter.parse(args.extensions, args.keyword, args.compressed)
             if tbl:
                 tables.append(tbl)
         except OSError as e:
@@ -319,6 +325,7 @@ def print_headers_as_table(args):
         resulting_table = tables[0]
     else:
         from astropy import table
+
         resulting_table = table.vstack(tables)
     # Print the string representation of the concatenated table
     resulting_table.write(sys.stdout, format=args.table)
@@ -335,20 +342,19 @@ def print_headers_as_comparison(args):
         Arguments passed from the command-line as defined below.
     """
     from astropy import table
+
     tables = []
     # Create a Table object for each file
     for filename in args.filename:  # Support wildcards
         formatter = None
         try:
             formatter = TableHeaderFormatter(filename, verbose=False)
-            tbl = formatter.parse(args.extensions,
-                                  args.keywords,
-                                  args.compressed)
+            tbl = formatter.parse(args.extensions, args.keyword, args.compressed)
             if tbl:
                 # Remove empty keywords
-                tbl = tbl[np.where(tbl['keyword'] != '')]
+                tbl = tbl[np.where(tbl["keyword"] != "")]
             else:
-                tbl = table.Table([[filename]], names=('filename',))
+                tbl = table.Table([[filename]], names=("filename",))
             tables.append(tbl)
         except OSError as e:
             log.error(str(e))  # file not found or unreadable
@@ -365,91 +371,141 @@ def print_headers_as_comparison(args):
         resulting_table = table.vstack(tables)
 
     # If we obtained more than one hdu, merge hdu and keywords columns
-    hdus = resulting_table['hdu']
+    hdus = resulting_table["hdu"]
     if np.ma.isMaskedArray(hdus):
         hdus = hdus.compressed()
     if len(np.unique(hdus)) > 1:
         for tab in tables:
-            new_column = table.Column(
-                [f"{row['hdu']}:{row['keyword']}" for row in tab])
-            tab.add_column(new_column, name='hdu+keyword')
-        keyword_column_name = 'hdu+keyword'
+            new_column = table.Column([f"{row['hdu']}:{row['keyword']}" for row in tab])
+            tab.add_column(new_column, name="hdu+keyword")
+        keyword_column_name = "hdu+keyword"
     else:
-        keyword_column_name = 'keyword'
+        keyword_column_name = "keyword"
 
     # Check how many hdus we are processing
     final_tables = []
     for tab in tables:
-        final_table = [table.Column([tab['filename'][0]], name='filename')]
-        if 'value' in tab.colnames:
+        final_table = [table.Column([tab["filename"][0]], name="filename")]
+        if "value" in tab.colnames:
             for row in tab:
-                if row['keyword'] in ('COMMENT', 'HISTORY'):
+                if row["keyword"] in ("COMMENT", "HISTORY"):
                     continue
-                final_table.append(table.Column([row['value']],
-                                                name=row[keyword_column_name]))
+                final_table.append(
+                    table.Column([row["value"]], name=row[keyword_column_name])
+                )
         final_tables.append(table.Table(final_table))
     final_table = table.vstack(final_tables)
     # Sort if requested
-    if args.fitsort is not True:  # then it must be a keyword, therefore sort
-        final_table.sort(args.fitsort)
+    if args.sort:
+        final_table.sort(args.sort)
     # Reorganise to keyword by columns
     final_table.pprint(max_lines=-1, max_width=-1)
-
-
-class KeywordAppendAction(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
-        keyword = values.replace('.', ' ')
-        if namespace.keywords is None:
-            namespace.keywords = []
-        if keyword not in namespace.keywords:
-            namespace.keywords.append(keyword)
 
 
 def main(args=None):
     """This is the main function called by the `fitsheader` script."""
 
     parser = argparse.ArgumentParser(
-        description=DESCRIPTION,
-        formatter_class=argparse.RawDescriptionHelpFormatter)
+        description=DESCRIPTION, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
 
     parser.add_argument(
-        '--version', action='version',
-        version=f'%(prog)s {__version__}')
+        "--version", action="version", version=f"%(prog)s {__version__}"
+    )
 
-    parser.add_argument('-e', '--extension', metavar='HDU',
-                        action='append', dest='extensions',
-                        help='specify the extension by name or number; '
-                             'this argument can be repeated '
-                             'to select multiple extensions')
-    parser.add_argument('-k', '--keyword', metavar='KEYWORD',
-                        action=KeywordAppendAction, dest='keywords',
-                        help='specify a keyword; this argument can be '
-                             'repeated to select multiple keywords; '
-                             'also supports wildcards')
-    parser.add_argument('-t', '--table',
-                        nargs='?', default=False, metavar='FORMAT',
-                        help='print the header(s) in machine-readable table '
-                             'format; the default format is '
-                             '"ascii.fixed_width" (can be "ascii.csv", '
-                             '"ascii.html", "ascii.latex", "fits", etc)')
-    parser.add_argument('-f', '--fitsort', action='store_true',
-                        help='print the headers as a table with each unique '
-                             'keyword in a given column (fitsort format); '
-                             'if a SORT_KEYWORD is specified, the result will be '
-                             'sorted along that keyword')
-    parser.add_argument('-c', '--compressed', action='store_true',
-                        help='for compressed image data, '
-                             'show the true header which describes '
-                             'the compression rather than the data')
-    parser.add_argument('filename', nargs='+',
-                        help='path to one or more files; '
-                             'wildcards are supported')
+    parser.add_argument(
+        "-e",
+        "--extension",
+        metavar="HDU",
+        action="append",
+        dest="extensions",
+        help=(
+            "specify the extension by name or number; "
+            "this argument can be repeated "
+            "to select multiple extensions"
+        ),
+    )
+    parser.add_argument(
+        "-k",
+        "--keyword",
+        metavar="KEYWORD",
+        action="append",
+        type=str,
+        help=(
+            "specify a keyword; this argument can be "
+            "repeated to select multiple keywords; "
+            "also supports wildcards"
+        ),
+    )
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
+        "-t",
+        "--table",
+        nargs="?",
+        default=False,
+        metavar="FORMAT",
+        help=(
+            "print the header(s) in machine-readable table "
+            "format; the default format is "
+            '"ascii.fixed_width" (can be "ascii.csv", '
+            '"ascii.html", "ascii.latex", "fits", etc)'
+        ),
+    )
+    mode_group.add_argument(
+        "-f",
+        "--fitsort",
+        action="store_true",
+        help=(
+            "print the headers as a table with each unique "
+            "keyword in a given column (fitsort format) "
+        ),
+    )
+    parser.add_argument(
+        "-s",
+        "--sort",
+        metavar="SORT_KEYWORD",
+        action="append",
+        type=str,
+        help=(
+            "sort output by the specified header keywords, "
+            "can be repeated to sort by multiple keywords; "
+            "Only supported with -f/--fitsort"
+        ),
+    )
+    parser.add_argument(
+        "-c",
+        "--compressed",
+        action="store_true",
+        help=(
+            "for compressed image data, "
+            "show the true header which describes "
+            "the compression rather than the data"
+        ),
+    )
+    parser.add_argument(
+        "filename",
+        nargs="+",
+        help="path to one or more files; wildcards are supported",
+    )
     args = parser.parse_args(args)
 
     # If `--table` was used but no format specified,
     # then use ascii.fixed_width by default
     if args.table is None:
-        args.table = 'ascii.fixed_width'
+        args.table = "ascii.fixed_width"
+
+    if args.sort:
+        args.sort = [key.replace(".", " ") for key in args.sort]
+        if not args.fitsort:
+            log.error(
+                "Sorting with -s/--sort is only supported in conjunction with"
+                " -f/--fitsort"
+            )
+            # 2: Unix error convention for command line syntax
+            sys.exit(2)
+
+    if args.keyword:
+        args.keyword = [key.replace(".", " ") for key in args.keyword]
 
     # Now print the desired headers
     try:

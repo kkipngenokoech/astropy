@@ -1,14 +1,12 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
-# -*- coding: utf-8 -*-
 from astropy.coordinates import EarthLocation
-
-from ...types import AstropyType
+from astropy.io.misc.asdf.types import AstropyType
 
 
 class EarthLocationType(AstropyType):
-    name = 'coordinates/earthlocation'
+    name = "coordinates/earthlocation"
     types = [EarthLocation]
-    version = '1.0.0'
+    version = "1.0.0"
 
     @classmethod
     def to_tree(cls, obj, ctx):

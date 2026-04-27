@@ -33,9 +33,9 @@ Getting Started
 The |Cosmology| class includes two methods, |Cosmology.read| and
 |Cosmology.write|, that make it possible to read from and write to files.
 
-Currently the only registered ``read`` / ``write`` format is "ascii.ecsv",
-like for Table. Also, custom ``read`` / ``write`` formats may be registered
-into the Astropy Cosmology I/O framework.
+The registered ``read`` / ``write`` formats include "ascii.ecsv" and
+"ascii.html", like for Table. Also, custom ``read`` / ``write`` formats may be
+registered into the Astropy Cosmology I/O framework.
 
 Writing a cosmology instance requires only the file location and optionally,
 if the file format cannot be inferred, a keyword argument "format". Additional
@@ -66,11 +66,9 @@ To see a list of the available read/write file formats:
       Format   Read Write Auto-identify
     ---------- ---- ----- -------------
     ascii.ecsv  Yes   Yes           Yes
-      myformat  Yes   Yes           Yes
+    ascii.html  Yes   Yes           Yes
 
 This list will include both built-in and registered 3rd-party formats.
-"myformat" is from an `example 3rd-party package
-<https://github.com/astropy/astropy/tree/main/astropy/cosmology/tests/mypackage>`_.
 
 When a subclass of |Cosmology| is used to read a file, the subclass will provide
 a keyword argument ``cosmology=<class>`` to the registered read method. The
@@ -102,13 +100,9 @@ To see the a list of the available conversion formats:
           astropy.row  Yes   Yes           Yes
         astropy.table  Yes   Yes           Yes
               mapping  Yes   Yes           Yes
-            mypackage  Yes   Yes           Yes
                  yaml  Yes   Yes            No
 
 This list will include both built-in and registered 3rd-party formats.
-For instance, in the above, "mapping" is built-in while "mypackage" and
-is from an `example 3rd-party package
-<https://github.com/astropy/astropy/tree/main/astropy/cosmology/tests/mypackage>`_.
 
 |Cosmology.to_format| / |Cosmology.from_format| parse a Cosmology to/from
 another python object. This can be useful for e.g., iterating through an MCMC
@@ -124,7 +118,7 @@ instances between packages!
     >>> from astropy.cosmology import Planck18
     >>> cm = Planck18.to_format("mapping")
     >>> cm
-    {'cosmology': <class 'astropy.cosmology.flrw.FlatLambdaCDM'>,
+    {'cosmology': <class 'astropy.cosmology.flrw.lambdacdm.FlatLambdaCDM'>,
      'name': 'Planck18',
      'H0': <Quantity 67.66 km / (Mpc s)>,
      'Om0': 0.30966,
@@ -152,9 +146,9 @@ from a |QTable|.
     >>> ct = Planck18.to_format("astropy.table")
     >>> ct
     <QTable length=1>
-      name        H0        Om0    Tcmb0    Neff    m_nu [3]    Ob0
+      name        H0        Om0    Tcmb0    Neff      m_nu      Ob0
              km / (Mpc s)            K                 eV
-      str8     float64    float64 float64 float64   float64   float64
+      str8     float64    float64 float64 float64  float64[3] float64
     -------- ------------ ------- ------- ------- ----------- -------
     Planck18        67.66 0.30966  2.7255   3.046 0.0 .. 0.06 0.04897
 
@@ -167,9 +161,9 @@ Cosmology supports the astropy Table-like protocol (see
     >>> ct = QTable(Planck18)
     >>> ct
     <QTable length=1>
-      name        H0        Om0    Tcmb0    Neff    m_nu [3]    Ob0
+      name        H0        Om0    Tcmb0    Neff      m_nu      Ob0
              km / (Mpc s)            K                 eV
-      str8     float64    float64 float64 float64   float64   float64
+      str8     float64    float64 float64 float64  float64[3] float64
     -------- ------------ ------- ------- ------- ----------- -------
     Planck18        67.66 0.30966  2.7255   3.046 0.0 .. 0.06 0.04897
 
@@ -295,9 +289,9 @@ Now the registered functions can be used in |Cosmology.from_format| and
     >>> row = Planck18.to_format("astropy.row")
     >>> row
     <Row index=0>
-      cosmology     name        H0        Om0    Tcmb0    Neff    m_nu [3]    Ob0
+      cosmology     name        H0        Om0    Tcmb0    Neff      m_nu      Ob0
                            km / (Mpc s)            K                 eV
-        str13       str8     float64    float64 float64 float64   float64   float64
+        str13       str8     float64    float64 float64 float64  float64[3] float64
     ------------- -------- ------------ ------- ------- ------- ----------- -------
     FlatLambdaCDM Planck18        67.66 0.30966  2.7255   3.046 0.0 .. 0.06 0.04897
 
