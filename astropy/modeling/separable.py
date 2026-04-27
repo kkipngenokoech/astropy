@@ -186,6 +186,16 @@ def _coord_matrix(model, pos, noutp):
         is a left or right child.
 
     """
+    # Handle CompoundModel by recursively computing its separability matrix
+    if isinstance(model, CompoundModel):
+        model_sep_matrix = _separable(model)
+        mat = np.zeros((noutp, model.n_inputs))
+        if pos == 'left':
+            mat[:model.n_outputs, :model.n_inputs] = model_sep_matrix
+        else:
+            mat[-model.n_outputs:, -model.n_inputs:] = model_sep_matrix
+        return mat
+        
     if isinstance(model, Mapping):
         axes = []
         for i in model.mapping:
@@ -242,7 +252,7 @@ def _cstack(left, right):
         cright = _coord_matrix(right, 'right', noutp)
     else:
         cright = np.zeros((noutp, right.shape[1]))
-        cright[-right.shape[0]:, -right.shape[1]:] = 1
+        cright[-right.shape[0]:, -right.shape[1]:] = right
 
     return np.hstack([cleft, cright])
 
