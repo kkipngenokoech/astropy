@@ -234,15 +234,30 @@ def _cstack(left, right):
     noutp = _compute_n_outputs(left, right)
 
     if isinstance(left, Model):
-        cleft = _coord_matrix(left, 'left', noutp)
+        if isinstance(left, CompoundModel):
+            cleft = _separable(left)
+            # Pad the matrix to fit the combined output size
+            padded_cleft = np.zeros((noutp, cleft.shape[1]))
+            padded_cleft[:cleft.shape[0], :cleft.shape[1]] = cleft
+            cleft = padded_cleft
+        else:
+            cleft = _coord_matrix(left, 'left', noutp)
     else:
         cleft = np.zeros((noutp, left.shape[1]))
         cleft[: left.shape[0], : left.shape[1]] = left
+    
     if isinstance(right, Model):
-        cright = _coord_matrix(right, 'right', noutp)
+        if isinstance(right, CompoundModel):
+            cright = _separable(right)
+            # Pad the matrix to fit the combined output size
+            padded_cright = np.zeros((noutp, cright.shape[1]))
+            padded_cright[-cright.shape[0]:, -cright.shape[1]:] = cright
+            cright = padded_cright
+        else:
+            cright = _coord_matrix(right, 'right', noutp)
     else:
         cright = np.zeros((noutp, right.shape[1]))
-        cright[-right.shape[0]:, -right.shape[1]:] = 1
+        cright[-right.shape[0]:, -right.shape[1]:] = right
 
     return np.hstack([cleft, cright])
 
@@ -269,7 +284,10 @@ def _cdot(left, right):
         Return ``n_inputs``, ``n_outputs`` for a model or coord_matrix.
         """
         if isinstance(input, Model):
-            coords = _coord_matrix(input, position, input.n_outputs)
+            if isinstance(input, CompoundModel):
+                coords = _separable(input)
+            else:
+                coords = _coord_matrix(input, position, input.n_outputs)
         else:
             coords = input
         return coords
