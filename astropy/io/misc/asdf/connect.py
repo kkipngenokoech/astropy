@@ -1,11 +1,11 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
-# -*- coding: utf-8 -*-
 # This file connects ASDF to the astropy.table.Table class
-
-import functools
+import warnings
 
 from astropy.io import registry as io_registry
+from astropy.io.misc.asdf.deprecation import create_asdf_deprecation_warning
 from astropy.table import Table
+from astropy.utils.compat import optional_deps
 
 
 def read_table(filename, data_key=None, find_table=None, **kwargs):
@@ -39,11 +39,12 @@ def read_table(filename, data_key=None, find_table=None, **kwargs):
     table : `~astropy.table.Table`
         `~astropy.table.Table` instance
     """
+    warnings.warn(create_asdf_deprecation_warning())
+
     try:
         import asdf
     except ImportError:
-        raise Exception(
-            "The asdf module is required to read and write ASDF files")
+        raise Exception("The asdf module is required to read and write ASDF files")
 
     if data_key and find_table:
         raise ValueError("Options 'data_key' and 'find_table' are not compatible")
@@ -52,7 +53,7 @@ def read_table(filename, data_key=None, find_table=None, **kwargs):
         if find_table:
             return find_table(af.tree)
         else:
-            return af[data_key or 'data']
+            return af[data_key or "data"]
 
 
 def write_table(table, filename, data_key=None, make_tree=None, **kwargs):
@@ -83,11 +84,12 @@ def write_table(table, filename, data_key=None, make_tree=None, **kwargs):
         to be written. The function must return a `dict` representing the ASDF
         tree to be created.
     """
+    warnings.warn(create_asdf_deprecation_warning())
+
     try:
         import asdf
     except ImportError:
-        raise Exception(
-            "The asdf module is required to read and write ASDF files")
+        raise Exception("The asdf module is required to read and write ASDF files")
 
     if data_key and make_tree:
         raise ValueError("Options 'data_key' and 'make_tree' are not compatible")
@@ -95,7 +97,7 @@ def write_table(table, filename, data_key=None, make_tree=None, **kwargs):
     if make_tree:
         tree = make_tree(table)
     else:
-        tree = {data_key or 'data' : table}
+        tree = {data_key or "data": table}
 
     with asdf.AsdfFile(tree) as af:
         af.write_to(filename, **kwargs)
@@ -103,13 +105,14 @@ def write_table(table, filename, data_key=None, make_tree=None, **kwargs):
 
 def asdf_identify(origin, filepath, fileobj, *args, **kwargs):
     try:
-        import asdf
+        import asdf  # noqa: F401
     except ImportError:
         return False
 
-    return filepath is not None and filepath.endswith('.asdf')
+    return filepath is not None and filepath.endswith(".asdf")
 
 
-io_registry.register_reader('asdf', Table, read_table)
-io_registry.register_writer('asdf', Table, write_table)
-io_registry.register_identifier('asdf', Table, asdf_identify)
+if not optional_deps.HAS_ASDF_ASTROPY:
+    io_registry.register_reader("asdf", Table, read_table)
+    io_registry.register_writer("asdf", Table, write_table)
+    io_registry.register_identifier("asdf", Table, asdf_identify)

@@ -37,9 +37,12 @@ READ_DOCSTRING = """
         Line index for the end of data not counting comment or blank lines.
         This value can be negative to count from the end.
     converters : dict
-        Dictionary of converters. Keys in the dictionary are columns names,
-        values are converter functions. In addition to single column names
-        you can use wildcards via `fnmatch` to select multiple columns.
+        Dictionary of converters to specify output column dtypes. Each key in
+        the dictionary is a column name or else a name matching pattern
+        including wildcards. The value is either a data type such as ``int`` or
+        ``np.float32``; a list of such types which is tried in order until a
+        successful conversion is achieved; or a list of converter tuples (see
+        the `~astropy.io.ascii.convert_numpy` function for details).
     data_Splitter : `~astropy.io.ascii.BaseSplitter`
         Splitter class to split data columns
     header_Splitter : `~astropy.io.ascii.BaseSplitter`
@@ -93,28 +96,28 @@ READ_DOCSTRING = """
 # -  'list-list' is a special case for an iterable that is not a string.
 READ_KWARG_TYPES = {
     # 'table'
-    'guess': bool,
+    "guess": bool,
     # 'format'
     # 'Reader'
     # 'Inputter'
     # 'Outputter'
-    'delimiter': str,
-    'comment': str,
-    'quotechar': str,
-    'header_start': int,
-    'data_start': (int, str),  # CDS allows 'guess'
-    'data_end': int,
-    'converters': dict,
+    "delimiter": str,
+    "comment": str,
+    "quotechar": str,
+    "header_start": int,
+    "data_start": (int, str),  # CDS allows 'guess'
+    "data_end": int,
+    "converters": dict,
     # 'data_Splitter'
     # 'header_Splitter'
-    'names': 'list-like',
-    'include_names': 'list-like',
-    'exclude_names': 'list-like',
-    'fill_values': 'list-like',
-    'fill_include_names': 'list-like',
-    'fill_exclude_names': 'list-like',
-    'fast_reader': (bool, str, dict),
-    'encoding': str,
+    "names": "list-like",
+    "include_names": "list-like",
+    "exclude_names": "list-like",
+    "fill_values": "list-like",
+    "fill_include_names": "list-like",
+    "fill_exclude_names": "list-like",
+    "fast_reader": (bool, str, dict),
+    "encoding": str,
 }
 
 
@@ -171,16 +174,16 @@ WRITE_DOCSTRING = """
 WRITE_KWARG_TYPES = {
     # 'table'
     # 'output'
-    'format': str,
-    'delimiter': str,
-    'comment': (str, bool),
-    'quotechar': str,
-    'header_start': int,
-    'formats': dict,
-    'strip_whitespace': (bool),
-    'names': 'list-like',
-    'include_names': 'list-like',
-    'exclude_names': 'list-like',
-    'fast_writer': (bool, str),
-    'overwrite': (bool),
+    "format": str,
+    "delimiter": str,
+    "comment": (str, bool),
+    "quotechar": str,
+    "header_start": int,
+    "formats": dict,
+    "strip_whitespace": (bool),
+    "names": "list-like",
+    "include_names": "list-like",
+    "exclude_names": "list-like",
+    "fast_writer": (bool, str),
+    "overwrite": (bool),
 }

@@ -6,15 +6,21 @@ This module contains simple functions for model selection.
 
 import numpy as np
 
-__all__ = ['bayesian_info_criterion', 'bayesian_info_criterion_lsq',
-           'akaike_info_criterion', 'akaike_info_criterion_lsq']
+__all__ = [
+    "bayesian_info_criterion",
+    "bayesian_info_criterion_lsq",
+    "akaike_info_criterion",
+    "akaike_info_criterion_lsq",
+]
 
-__doctest_requires__ = {'bayesian_info_criterion_lsq': ['scipy'],
-                        'akaike_info_criterion_lsq': ['scipy']}
+__doctest_requires__ = {
+    "bayesian_info_criterion_lsq": ["scipy"],
+    "akaike_info_criterion_lsq": ["scipy"],
+}
 
 
 def bayesian_info_criterion(log_likelihood, n_params, n_samples):
-    r""" Computes the Bayesian Information Criterion (BIC) given the log of the
+    r"""Computes the Bayesian Information Criterion (BIC) given the log of the
     likelihood function evaluated at the estimated (or analytically derived)
     parameters, the number of parameters, and the number of samples.
 
@@ -109,7 +115,7 @@ def bayesian_info_criterion(log_likelihood, n_params, n_samples):
        <https://arxiv.org/pdf/astro-ph/0401198v3.pdf>
     """
 
-    return n_params*np.log(n_samples) - 2.0*log_likelihood
+    return n_params * np.log(n_samples) - 2.0 * log_likelihood
 
 
 # NOTE: bic_t - bic_g doctest is skipped because it produced slightly
@@ -196,8 +202,9 @@ def bayesian_info_criterion_lsq(ssr, n_params, n_samples):
         <https://docs.astropy.org/en/stable/modeling>
     """
 
-    return bayesian_info_criterion(-0.5 * n_samples * np.log(ssr / n_samples),
-                                   n_params, n_samples)
+    return bayesian_info_criterion(
+        -0.5 * n_samples * np.log(ssr / n_samples), n_params, n_samples
+    )
 
 
 def akaike_info_criterion(log_likelihood, n_params, n_samples):
@@ -286,7 +293,6 @@ def akaike_info_criterion(log_likelihood, n_params, n_samples):
     .. [2] Mazerolle, M. J. Making sense out of Akaike's Information
        Criterion (AIC): its use and interpretation in model selection and
        inference from ecological data.
-       <https://corpus.ulaval.ca/jspui/handle/20.500.11794/17461>
     .. [3] Wikipedia. Akaike Information Criterion.
        <https://en.wikipedia.org/wiki/Akaike_information_criterion>
     .. [4] Origin Lab. Comparing Two Fitting Functions.
@@ -297,12 +303,12 @@ def akaike_info_criterion(log_likelihood, n_params, n_samples):
        <https://arxiv.org/pdf/astro-ph/0401198v3.pdf>
     """
     # Correction in case of small number of observations
-    if n_samples/float(n_params) >= 40.0:
+    if n_samples / float(n_params) >= 40.0:
         aic = 2.0 * (n_params - log_likelihood)
     else:
-        aic = (2.0 * (n_params - log_likelihood) +
-               2.0 * n_params * (n_params + 1.0) /
-               (n_samples - n_params - 1.0))
+        aic = 2.0 * (n_params - log_likelihood) + 2.0 * n_params * (n_params + 1.0) / (
+            n_samples - n_params - 1.0
+        )
     return aic
 
 
@@ -399,5 +405,6 @@ def akaike_info_criterion_lsq(ssr, n_params, n_samples):
        <https://www.originlab.com/doc/Origin-Help/PostFit-CompareFitFunc>
     """
 
-    return akaike_info_criterion(-0.5 * n_samples * np.log(ssr / n_samples),
-                                 n_params, n_samples)
+    return akaike_info_criterion(
+        -0.5 * n_samples * np.log(ssr / n_samples), n_params, n_samples
+    )

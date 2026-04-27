@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 from astropy.units.core import IrreducibleUnit, Unit
 
@@ -12,9 +11,9 @@ class FunctionMixin:
 
     See units.py and logarithmic.py for usage.
     """
+
     def __call__(self, unit=None):
-        return self._function_unit_class(physical_unit=unit,
-                                         function_unit=self)
+        return self._function_unit_class(physical_unit=unit, function_unit=self)
 
 
 class IrreducibleFunctionUnit(FunctionMixin, IrreducibleUnit):
