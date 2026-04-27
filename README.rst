@@ -2,7 +2,9 @@
 Astropy
 =======
 
-|Actions Status| |CircleCI Status| |Azure Status| |Coverage Status| |PyPI Status| |Documentation Status| |Zenodo|
+.. container::
+
+    |Actions Status| |CircleCI Status| |Coverage Status| |PyPI Status| |Documentation Status| |Pre-Commit| |isort Status| |Zenodo|
 
 The Astropy Project (http://astropy.org/) is a community effort to develop a
 single core package for Astronomy in Python and foster interoperability between
@@ -56,10 +58,6 @@ Astropy is licensed under a 3-clause BSD style license - see the
     :target: https://circleci.com/gh/astropy/astropy
     :alt: Astropy's CircleCI Status
 
-.. |Azure Status| image:: https://dev.azure.com/astropy-project/astropy/_apis/build/status/astropy.astropy?repoName=astropy%2Fastropy&branchName=main
-    :target: https://dev.azure.com/astropy-project/astropy
-    :alt: Astropy's Azure Pipelines Status
-
 .. |Coverage Status| image:: https://codecov.io/gh/astropy/astropy/branch/main/graph/badge.svg
     :target: https://codecov.io/gh/astropy/astropy
     :alt: Astropy's Coverage Status
@@ -75,6 +73,14 @@ Astropy is licensed under a 3-clause BSD style license - see the
 .. |Documentation Status| image:: https://img.shields.io/readthedocs/astropy/latest.svg?logo=read%20the%20docs&logoColor=white&label=Docs&version=stable
     :target: https://docs.astropy.org/en/stable/?badge=stable
     :alt: Documentation Status
+
+.. |Pre-Commit| image:: https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white
+   :target: https://github.com/pre-commit/pre-commit
+   :alt: pre-commit
+
+.. |isort Status| image:: https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336
+    :target: https://pycqa.github.io/isort/
+    :alt: isort Status
 
 .. |NumFOCUS| image:: https://img.shields.io/badge/powered%20by-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A
     :target: http://numfocus.org

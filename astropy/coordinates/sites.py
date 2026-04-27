@@ -12,13 +12,14 @@ updating the ``location.json`` file.
 
 
 import json
-from difflib import get_close_matches
 from collections.abc import Mapping
+from difflib import get_close_matches
 
-from astropy.utils.data import get_pkg_data_contents, get_file_contents
+from astropy import units as u
+from astropy.utils.data import get_file_contents, get_pkg_data_contents
+
 from .earth import EarthLocation
 from .errors import UnknownSiteException
-from astropy import units as u
 
 
 class SiteRegistry(Mapping):
@@ -30,6 +31,7 @@ class SiteRegistry(Mapping):
     lower-case, and even if you ask for something that's got mixed case, it will
     be interpreted as the all lower-case version.
     """
+
     def __init__(self):
         # the keys to this are always lower-case
         self._lowercase_names_to_locations = {}
@@ -52,10 +54,14 @@ class SiteRegistry(Mapping):
         """
         if site_name.lower() not in self._lowercase_names_to_locations:
             # If site name not found, find close matches and suggest them in error
-            close_names = get_close_matches(site_name, self._lowercase_names_to_locations)
+            close_names = get_close_matches(
+                site_name, self._lowercase_names_to_locations
+            )
             close_names = sorted(close_names, key=len)
 
-            raise UnknownSiteException(site_name, "the 'names' attribute", close_names=close_names)
+            raise UnknownSiteException(
+                site_name, "the 'names' attribute", close_names=close_names
+            )
 
         return self._lowercase_names_to_locations[site_name.lower()]
 
@@ -102,11 +108,16 @@ class SiteRegistry(Mapping):
         reg = cls()
         for site in jsondb:
             site_info = jsondb[site].copy()
-            location = EarthLocation.from_geodetic(site_info.pop('longitude') * u.Unit(site_info.pop('longitude_unit')),
-                                                   site_info.pop('latitude') * u.Unit(site_info.pop('latitude_unit')),
-                                                   site_info.pop('elevation') * u.Unit(site_info.pop('elevation_unit')))
-            location.info.name = site_info.pop('name')
-            aliases = site_info.pop('aliases')
+            location = EarthLocation.from_geodetic(
+                site_info.pop("longitude") * u.Unit(site_info.pop("longitude_unit")),
+                site_info.pop("latitude") * u.Unit(site_info.pop("latitude_unit")),
+                site_info.pop("elevation") * u.Unit(site_info.pop("elevation_unit")),
+            )
+            name = site_info.pop("name")
+            location.info.name = name
+            aliases = [alias for alias in site_info.pop("aliases") if alias]
+            if name not in aliases and name != site:
+                aliases.append(name)
             location.info.meta = site_info  # whatever is left
 
             reg.add_site([site] + aliases, location)
@@ -120,7 +131,7 @@ def get_builtin_sites():
     Load observatory database from data/observatories.json and parse them into
     a SiteRegistry.
     """
-    jsondb = json.loads(get_pkg_data_contents('data/sites.json'))
+    jsondb = json.loads(get_pkg_data_contents("data/sites.json"))
     return SiteRegistry.from_json(jsondb)
 
 
@@ -132,9 +143,9 @@ def get_downloaded_sites(jsonurl=None):
     # we explicitly set the encoding because the default is to leave it set by
     # the users' locale, which may fail if it's not matched to the sites.json
     if jsonurl is None:
-        content = get_pkg_data_contents('coordinates/sites.json', encoding='UTF-8')
+        content = get_pkg_data_contents("coordinates/sites.json", encoding="UTF-8")
     else:
-        content = get_file_contents(jsonurl, encoding='UTF-8')
+        content = get_file_contents(jsonurl, encoding="UTF-8")
 
     jsondb = json.loads(content)
     return SiteRegistry.from_json(jsondb)
