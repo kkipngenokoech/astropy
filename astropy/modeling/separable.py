@@ -89,23 +89,15 @@ def separability_matrix(transform):
         array([[ True,  True], [ True,  True]]...)
     >>> separability_matrix(Shift(1) & Shift(2) | Mapping([0, 1, 0, 1]) | \
         Polynomial2D(1) & Polynomial2D(2))
-        array([[ True,  True], [ True,  True]]...)
-    >>> separability_matrix(Shift(1) & Shift(2) | Mapping([0, 1, 0, 1]))
-        array([[ True, False], [False,  True], [ True, False], [False,  True]]...)
+        array([[ True,  True,  True,  True], [ True,  True,  True,  True]]...)
 
     """
-    if transform.n_inputs == 1 and transform.n_outputs > 1:
-        return np.ones((transform.n_outputs, transform.n_inputs),
-                       dtype=np.bool_)
-    separable_matrix = _separable(transform)
-    separable_matrix = np.where(separable_matrix != 0, True, False)
-    return separable_matrix
+    return _separable(transform)
 
 
 def _compute_n_outputs(left, right):
     """
     Compute the number of outputs of two models.
-
     The two models are the left and right model to an operation in
     the expression tree of a compound model.
 
@@ -127,11 +119,34 @@ def _compute_n_outputs(left, right):
     return noutp
 
 
+def _compute_n_inputs(left, right):
+    """
+    Compute the number of inputs of two models.
+    The two models are the left and right model to an operation in
+    the expression tree of a compound model.
+
+    Parameters
+    ----------
+    left, right : `astropy.modeling.Model` or ndarray
+        If input is of an array, it is the output of `coord_matrix`.
+
+    """
+    if isinstance(left, Model):
+        lnin = left.n_inputs
+    else:
+        lnin = left.shape[1]
+    if isinstance(right, Model):
+        rnin = right.n_inputs
+    else:
+        rnin = right.shape[1]
+    ninp = lnin + rnin
+    return ninp
+
+
 def _arith_oper(left, right):
     """
     Function corresponding to one of the arithmetic operators
     ['+', '-'. '*', '/', '**'].
-
     This always returns a nonseparable output.
 
 
@@ -145,74 +160,57 @@ def _arith_oper(left, right):
     result : ndarray
         Result from this operation.
     """
-    # models have the same number of inputs and outputs
-    def _n_inputs_outputs(input):
-        if isinstance(input, Model):
-            n_outputs, n_inputs = input.n_outputs, input.n_inputs
-        else:
-            n_outputs, n_inputs = input.shape
-        return n_inputs, n_outputs
+    # models have the same n_inputs and n_outputs
+    if isinstance(left, Model):
+        ninp = left.n_inputs
+        noutp = left.n_outputs
+    else:
+        ninp, noutp = left.shape[1], left.shape[0]
 
-    left_inputs, left_outputs = _n_inputs_outputs(left)
-    right_inputs, right_outputs = _n_inputs_outputs(right)
-
-    if left_inputs != right_inputs or left_outputs != right_outputs:
-        raise ModelDefinitionError(
-            "Unsupported operands for arithmetic operator: left (n_inputs={}, "
-            "n_outputs={}) and right (n_inputs={}, n_outputs={}); "
-            "models must have the same n_inputs and the same "
-            "n_outputs for this operator.".format(
-                left_inputs, left_outputs, right_inputs, right_outputs))
-
-    result = np.ones((left_outputs, left_inputs))
+    result = np.ones((noutp, ninp))
     return result
 
 
-def _coord_matrix(model, pos, noutp):
+def _coord_matrix(model, pos, noutp, ninp):
     """
     Create an array representing inputs and outputs of a simple model.
 
-    The array has a shape (noutp, model.n_inputs).
+    The array has a shape (noutp, ninp).
+    Zeros indicate no correlation between an input and an output.
+    Ones indicate correlation.
 
     Parameters
     ----------
     model : `astropy.modeling.Model`
-        model
+        A simple model.
     pos : str
         Position of this model in the expression tree.
         One of ['left', 'right'].
     noutp : int
         Number of outputs of the compound model of which the input model
         is a left or right child.
+    ninp : int
+        Number of inputs of the compound model of which the input model
+        is a left or right child.
 
+    Returns
+    -------
+    result : ndarray
     """
     if isinstance(model, Mapping):
-        axes = []
-        for i in model.mapping:
-            axis = np.zeros((model.n_inputs,))
-            axis[i] = 1
-            axes.append(axis)
-        m = np.vstack(axes)
-        mat = np.zeros((noutp, model.n_inputs))
-        if pos == 'left':
-            mat[: model.n_outputs, :model.n_inputs] = m
-        else:
-            mat[-model.n_outputs:, -model.n_inputs:] = m
-        return mat
-    if not model.separable:
-        # this does not work for more than 2 coordinates
-        mat = np.zeros((noutp, model.n_inputs))
-        if pos == 'left':
-            mat[:model.n_outputs, : model.n_inputs] = 1
-        else:
-            mat[-model.n_outputs:, -model.n_inputs:] = 1
+        axes = model.mapping
     else:
-        mat = np.zeros((noutp, model.n_inputs))
+        axes = list(range(model.n_inputs))
 
-        for i in range(model.n_inputs):
-            mat[i, i] = 1
-        if pos == 'right':
-            mat = np.roll(mat, (noutp - model.n_outputs))
+    mat = np.zeros((noutp, ninp))
+    if pos == 'left':
+        mat[:model.n_outputs, :model.n_inputs] = 1
+    else:
+        mat[-model.n_outputs:, -model.n_inputs:] = 1
+
+    if isinstance(model, Mapping):
+        mat = mat[axes]
+
     return mat
 
 
@@ -232,19 +230,21 @@ def _cstack(left, right):
 
     """
     noutp = _compute_n_outputs(left, right)
+    ninp = _compute_n_inputs(left, right)
 
     if isinstance(left, Model):
-        cleft = _coord_matrix(left, 'left', noutp)
+        cleft = _coord_matrix(left, 'left', noutp, ninp)
     else:
-        cleft = np.zeros((noutp, left.shape[1]))
+        cleft = np.zeros((noutp, ninp))
         cleft[: left.shape[0], : left.shape[1]] = left
-    if isinstance(right, Model):
-        cright = _coord_matrix(right, 'right', noutp)
-    else:
-        cright = np.zeros((noutp, right.shape[1]))
-        cright[-right.shape[0]:, -right.shape[1]:] = 1
 
-    return np.hstack([cleft, cright])
+    if isinstance(right, Model):
+        cright = _coord_matrix(right, 'right', noutp, ninp)
+    else:
+        cright = np.zeros((noutp, ninp))
+        cright[-right.shape[0]:, -right.shape[1]:] = right
+
+    return cleft + cright
 
 
 def _cdot(left, right):
@@ -261,30 +261,17 @@ def _cdot(left, right):
     result : ndarray
         Result from this operation.
     """
+    if isinstance(left, Model):
+        cleft = _separable(left)
+    else:
+        cleft = left
 
-    left, right = right, left
+    if isinstance(right, Model):
+        cright = _separable(right)
+    else:
+        cright = right
 
-    def _n_inputs_outputs(input, position):
-        """
-        Return ``n_inputs``, ``n_outputs`` for a model or coord_matrix.
-        """
-        if isinstance(input, Model):
-            coords = _coord_matrix(input, position, input.n_outputs)
-        else:
-            coords = input
-        return coords
-
-    cleft = _n_inputs_outputs(left, 'left')
-    cright = _n_inputs_outputs(right, 'right')
-
-    try:
-        result = np.dot(cleft, cright)
-    except ValueError:
-        raise ModelDefinitionError(
-            'Models cannot be combined with the "|" operator; '
-            'left coord_matrix is {}, right coord_matrix is {}'.format(
-                cright, cleft))
-    return result
+    return np.dot(cleft, cright)
 
 
 def _separable(transform):
@@ -296,22 +283,28 @@ def _separable(transform):
     transform : `astropy.modeling.Model`
         A transform (usually a compound model).
 
-    Returns :
-    is_separable : ndarray of dtype np.bool
-        An array of shape (transform.n_outputs,) of boolean type
-        Each element represents the separablity of the corresponding output.
+    Returns
+    -------
+    separable_matrix : ndarray
+        An array of shape (n_outputs, n_inputs).
     """
-    if (transform_matrix := transform._calculate_separability_matrix()) is not NotImplemented:
+    if (transform_matrix := getattr(transform, '_separable_matrix', None)) is not None:
         return transform_matrix
-    elif isinstance(transform, CompoundModel):
+    if isinstance(transform, CompoundModel):
         sepleft = _separable(transform.left)
         sepright = _separable(transform.right)
-        return _operators[transform.op](sepleft, sepright)
+        return transform.op(sepleft, sepright)
     elif isinstance(transform, Model):
-        return _coord_matrix(transform, 'left', transform.n_outputs)
+        return _coord_matrix(transform, 'left', transform.n_outputs, transform.n_inputs)
+    else:
+        # Handle the case where transform is already a matrix
+        return transform
 
 
 # Maps modeling operators to a function computing and represents the
-# relationship of axes as an array of 0-es and 1-s
+# relationship between inputs and outputs.
 _operators = {'&': _cstack, '|': _cdot, '+': _arith_oper, '-': _arith_oper,
               '*': _arith_oper, '/': _arith_oper, '**': _arith_oper}
+
+
+CompoundModel.op = property(lambda self: _operators[self.op])
