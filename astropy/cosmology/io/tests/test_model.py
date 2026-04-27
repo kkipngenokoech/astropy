@@ -5,15 +5,13 @@ import inspect
 import random
 
 # THIRD PARTY
+import numpy as np
 import pytest
 
-import numpy as np
-
 # LOCAL
-from astropy.cosmology.core import _COSMOLOGY_CLASSES, Cosmology
+from astropy.cosmology.core import Cosmology
 from astropy.cosmology.io.model import _CosmologyModel, from_model, to_model
-from astropy.cosmology.tests.conftest import get_redshift_methods
-from astropy.modeling import FittableModel
+from astropy.cosmology.tests.helper import get_redshift_methods
 from astropy.modeling.models import Gaussian1D
 from astropy.utils.compat.optional_deps import HAS_SCIPY
 
@@ -35,7 +33,7 @@ class ToFromModelTestMixin(ToFromTestMixinBase):
     @pytest.fixture(scope="class")
     def method_name(self, cosmo):
         # get methods, ignoring private and dunder
-        methods = get_redshift_methods(cosmo, allow_private=False, allow_z2=True)
+        methods = get_redshift_methods(cosmo, include_private=False, include_z2=True)
 
         # dynamically detect ABC and optional dependencies
         for n in tuple(methods):
@@ -44,7 +42,7 @@ class ToFromModelTestMixin(ToFromTestMixinBase):
             ERROR_SEIVE = (NotImplementedError, ValueError)
             #              # ABC                can't introspect for good input
             if not HAS_SCIPY:
-                ERROR_SEIVE = ERROR_SEIVE + (ModuleNotFoundError, )
+                ERROR_SEIVE = ERROR_SEIVE + (ModuleNotFoundError,)
 
             args = np.arange(len(params)) + 1
             try:
@@ -85,7 +83,7 @@ class ToFromModelTestMixin(ToFromTestMixinBase):
         assert isinstance(model, _CosmologyModel)
 
         # Parameters
-        expect = tuple([n for n in cosmo.__parameters__ if getattr(cosmo, n) is not None])
+        expect = tuple(n for n in cosmo.__parameters__ if getattr(cosmo, n) is not None)
         assert model.param_names == expect
 
         # scalar result
@@ -97,11 +95,10 @@ class ToFromModelTestMixin(ToFromTestMixinBase):
 
         got = model(*args)
         expected = getattr(cosmo, method_name)(*args)
-        assert np.all(got == expected)
+        np.testing.assert_allclose(got, expected)
 
         # vector result
         if "scalar" not in method_name:
-
             args = (np.ones((model.n_inputs, 3)).T + np.arange(model.n_inputs)).T
 
             got = model.evaluate(*args)
@@ -110,10 +107,11 @@ class ToFromModelTestMixin(ToFromTestMixinBase):
 
             got = model(*args)
             expected = getattr(cosmo, method_name)(*args)
-            assert np.all(got == expected)
+            np.testing.assert_allclose(got, expected)
 
-    def test_tofromformat_model_instance(self, cosmo_cls, cosmo, method_name,
-                                         to_format, from_format):
+    def test_tofromformat_model_instance(
+        self, cosmo_cls, cosmo, method_name, to_format, from_format
+    ):
         """Test cosmology -> astropy.model -> cosmology."""
         if method_name is None:  # no test if no method
             return

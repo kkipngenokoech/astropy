@@ -1,7 +1,9 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+import copy
+
 import astropy.units as u
-from astropy.utils.decorators import classproperty
+from astropy.utils.decorators import deprecated_attribute, deprecated_renamed_argument
 
 __all__ = ["Parameter"]
 
@@ -36,6 +38,9 @@ class Parameter:
         `format` specification, used when making string representation
         of the containing Cosmology.
         See https://docs.python.org/3/library/string.html#formatspec
+
+        .. deprecated::  5.1
+
     doc : str or None (optional, keyword-only)
         Parameter description.
 
@@ -46,16 +51,24 @@ class Parameter:
 
     _registry_validators = {}
 
-    def __init__(self, *, derived=False, unit=None, equivalencies=[],
-                 fvalidate="default", fmt="", doc=None):
-
+    @deprecated_renamed_argument("fmt", None, since="5.1")
+    def __init__(
+        self,
+        *,
+        derived=False,
+        unit=None,
+        equivalencies=[],
+        fvalidate="default",
+        fmt="",
+        doc=None,
+    ):
         # attribute name on container cosmology class.
         # really set in __set_name__, but if Parameter is not init'ed as a
         # descriptor this ensures that the attributes exist.
         self._attr_name = self._attr_name_private = None
 
         self._derived = derived
-        self._fmt = str(fmt)  # @property is `format_spec`
+        self._format_spec = str(fmt)  # deprecated.
         self.__doc__ = doc
 
         # units stuff
@@ -69,11 +82,13 @@ class Parameter:
         elif fvalidate in self._registry_validators:
             fvalidate = self._registry_validators[fvalidate]
         elif isinstance(fvalidate, str):
-            raise ValueError("`fvalidate`, if str, must be in "
-                             f"{self._registry_validators.keys()}")
+            raise ValueError(
+                f"`fvalidate`, if str, must be in {self._registry_validators.keys()}"
+            )
         else:
-            raise TypeError("`fvalidate` must be a function or "
-                            f"{self._registry_validators.keys()}")
+            raise TypeError(
+                f"`fvalidate` must be a function or {self._registry_validators.keys()}"
+            )
         self._fvalidate = fvalidate
 
     def __set_name__(self, cosmo_cls, name):
@@ -96,10 +111,7 @@ class Parameter:
         """Equivalencies used when initializing Parameter."""
         return self._equivalencies
 
-    @property
-    def format_spec(self):
-        """String format specification."""
-        return self._fmt
+    format_spec = deprecated_attribute("format_spec", since="5.1")
 
     @property
     def derived(self):
@@ -110,19 +122,26 @@ class Parameter:
     # descriptor and property-like methods
 
     def __get__(self, cosmology, cosmo_cls=None):
-        # get from class
+        # Get from class
         if cosmology is None:
             return self
+        # Get from instance
         return getattr(cosmology, self._attr_name_private)
 
     def __set__(self, cosmology, value):
         """Allows attribute setting once. Raises AttributeError subsequently."""
-        # raise error if setting 2nd time.
+        # Raise error if setting 2nd time.
         if hasattr(cosmology, self._attr_name_private):
-            raise AttributeError("can't set attribute")
+            raise AttributeError(f"can't set attribute {self._attr_name} again")
 
-        # validate value, generally setting units if present
-        value = self.validate(cosmology, value)
+        # Validate value, generally setting units if present
+        value = self.validate(cosmology, copy.deepcopy(value))
+
+        # Make the value read-only, if ndarray-like
+        if hasattr(value, "setflags"):
+            value.setflags(write=False)
+
+        # Set the value on the cosmology
         setattr(cosmology, self._attr_name_private, value)
 
     # -------------------------------------------
@@ -130,7 +149,7 @@ class Parameter:
 
     @property
     def fvalidate(self):
-        """Function to validate a potential value of this Parameter.."""
+        """Function to validate a potential value of this Parameter."""
         return self._fvalidate
 
     def validator(self, fvalidate):
@@ -226,14 +245,19 @@ class Parameter:
         dict[str, Any]
         """
         # The keys are added in this order because `repr` prints them in order.
-        kw = {"derived": self.derived,
-              "unit": self.unit,
-              "equivalencies": self.equivalencies,
-              # Validator is always turned into a function, but for ``repr`` it's nice
-              # to know if it was originally a string.
-              "fvalidate": self.fvalidate if processed else self._fvalidate_in,
-              "fmt": self.format_spec,
-              "doc": self.__doc__}
+        kw = {
+            "derived": self.derived,
+            "unit": self.unit,
+            "equivalencies": self.equivalencies,
+            # Validator is always turned into a function, but for ``repr`` it's nice
+            # to know if it was originally a string.
+            "fvalidate": self.fvalidate if processed else self._fvalidate_in,
+            "doc": self.__doc__,
+        }
+        # fmt will issue a deprecation warning if passed, so only passed if
+        # it's not the default.
+        if self._format_spec:
+            kw["fmt"] = self._format_spec
         return kw
 
     def clone(self, **kw):
@@ -250,11 +274,11 @@ class Parameter:
         >>> p = Parameter()
         >>> p
         Parameter(derived=False, unit=None, equivalencies=[],
-                  fvalidate='default', fmt='', doc=None)
+                  fvalidate='default', doc=None)
 
         >>> p.clone(unit="km")
         Parameter(derived=False, unit=Unit("km"), equivalencies=[],
-                  fvalidate='default', fmt='', doc=None)
+                  fvalidate='default', doc=None)
         """
         # Start with defaults, update from kw.
         kwargs = {**self._get_init_arguments(), **kw}
@@ -294,8 +318,9 @@ class Parameter:
         # Check equality on all `_init_arguments` & `name`.
         # Need to compare the processed arguments because the inputs are many-
         # to-one, e.g. `fvalidate` can be a string or the equivalent function.
-        return ((self._get_init_arguments(True) == other._get_init_arguments(True))
-                and (self.name == other.name))
+        return (self._get_init_arguments(True) == other._get_init_arguments(True)) and (
+            self.name == other.name
+        )
 
     def __repr__(self):
         """String representation.
@@ -303,8 +328,9 @@ class Parameter:
         ``eval(repr())`` should work, depending if contents like ``fvalidate``
         can be similarly round-tripped.
         """
-        return "Parameter({})".format(", ".join(f"{k}={v!r}" for k, v in
-                                                self._get_init_arguments().items()))
+        return "Parameter({})".format(
+            ", ".join(f"{k}={v!r}" for k, v in self._get_init_arguments().items())
+        )
 
 
 # ===================================================================

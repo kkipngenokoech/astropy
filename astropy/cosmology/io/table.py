@@ -1,12 +1,10 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-import copy
-
 import numpy as np
 
 from astropy.cosmology.connect import convert_registry
 from astropy.cosmology.core import Cosmology
-from astropy.table import QTable, Table, Column
+from astropy.table import Column, QTable, Table
 
 from .mapping import to_mapping
 from .row import from_row
@@ -54,9 +52,9 @@ def from_table(table, index=None, *, move_to_meta=False, cosmology=None):
         >>> ct = Planck18.to_format("astropy.table")
         >>> ct
         <QTable length=1>
-          name        H0        Om0    Tcmb0    Neff    m_nu [3]    Ob0
+          name        H0        Om0    Tcmb0    Neff      m_nu      Ob0
                  km / (Mpc s)            K                 eV
-          str8     float64    float64 float64 float64   float64   float64
+          str8     float64    float64 float64 float64  float64[3] float64
         -------- ------------ ------- ------- ------- ----------- -------
         Planck18        67.66 0.30966  2.7255   3.046 0.0 .. 0.06 0.04897
 
@@ -94,9 +92,9 @@ def from_table(table, index=None, *, move_to_meta=False, cosmology=None):
         ...              metadata_conflicts='silent')
         >>> cts
         <QTable length=3>
-          name        H0        Om0    Tcmb0    Neff    m_nu [3]    Ob0
+          name        H0        Om0    Tcmb0    Neff      m_nu      Ob0
                  km / (Mpc s)            K                 eV
-          str8     float64    float64 float64 float64   float64   float64
+          str8     float64    float64 float64 float64  float64[3]  float64
         -------- ------------ ------- ------- ------- ----------- --------
         Planck13        67.77 0.30712  2.7255   3.046 0.0 .. 0.06 0.048252
         Planck15        67.74  0.3075  2.7255   3.046 0.0 .. 0.06   0.0486
@@ -112,7 +110,7 @@ def from_table(table, index=None, *, move_to_meta=False, cosmology=None):
     # string index uses the indexed column on the table to find the row index.
     if isinstance(index, str):
         if not table.indices:  # no indexing column, find by string match
-            indices = np.where(table['name'] == index)[0]
+            indices = np.where(table["name"] == index)[0]
         else:  # has indexing column
             indices = table.loc_indices[index]  # need to convert to row index (int)
 
@@ -128,8 +126,10 @@ def from_table(table, index=None, *, move_to_meta=False, cosmology=None):
     # no index is needed for a 1-row table. For a multi-row table...
     if index is None:
         if len(table) != 1:  # multi-row table and no index
-            raise ValueError("need to select a specific row (e.g. index=1) when "
-                             "constructing a Cosmology from a multi-row table.")
+            raise ValueError(
+                "need to select a specific row (e.g. index=1) when "
+                "constructing a Cosmology from a multi-row table."
+            )
         else:  # single-row table
             index = 0
     row = table[index]  # index is now the row index (int)
@@ -174,9 +174,9 @@ def to_table(cosmology, *args, cls=QTable, cosmology_in_meta=True):
         >>> ct = Planck18.to_format("astropy.table")
         >>> ct
         <QTable length=1>
-          name        H0        Om0    Tcmb0    Neff    m_nu [3]    Ob0
+          name        H0        Om0    Tcmb0    Neff      m_nu      Ob0
                  km / (Mpc s)            K                 eV
-          str8     float64    float64 float64 float64   float64   float64
+          str8     float64    float64 float64 float64  float64[3] float64
         -------- ------------ ------- ------- ------- ----------- -------
         Planck18        67.66 0.30966  2.7255   3.046 0.0 .. 0.06 0.04897
 
@@ -191,9 +191,9 @@ def to_table(cosmology, *args, cls=QTable, cosmology_in_meta=True):
 
         >>> Planck18.to_format("astropy.table", cosmology_in_meta=False)
         <QTable length=1>
-          cosmology     name        H0        Om0    Tcmb0    Neff    m_nu [3]    Ob0
+          cosmology     name        H0        Om0    Tcmb0    Neff      m_nu      Ob0
                                km / (Mpc s)            K                 eV
-            str13       str8     float64    float64 float64 float64   float64   float64
+            str13       str8     float64    float64 float64 float64  float64[3] float64
         ------------- -------- ------------ ------- ------- ------- ----------- -------
         FlatLambdaCDM Planck18        67.66 0.30966  2.7255   3.046 0.0 .. 0.06 0.04897
 
@@ -224,8 +224,9 @@ def to_table(cosmology, *args, cls=QTable, cosmology_in_meta=True):
     cosmo_cls = cosmology.__class__
     for k, v in data.items():
         if k in cosmology.__parameters__:
-            col = convert_parameter_to_column(getattr(cosmo_cls, k), v,
-                                              cosmology.meta.get(k))
+            col = convert_parameter_to_column(
+                getattr(cosmo_cls, k), v, cosmology.meta.get(k)
+            )
         else:
             col = Column([v])
         data[k] = col

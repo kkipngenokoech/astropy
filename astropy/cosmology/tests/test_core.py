@@ -9,20 +9,19 @@
 import abc
 import inspect
 import pickle
-from types import MappingProxyType
 
 # THIRD PARTY
-import pytest
-
 import numpy as np
+import pytest
 
 # LOCAL
 import astropy.cosmology.units as cu
 import astropy.units as u
-from astropy.cosmology import Cosmology, core
+from astropy.cosmology import Cosmology, FlatCosmologyMixin
 from astropy.cosmology.core import _COSMOLOGY_CLASSES
 from astropy.cosmology.parameter import Parameter
 from astropy.table import Column, QTable, Table
+from astropy.utils.compat import PYTHON_LT_3_11
 from astropy.utils.exceptions import AstropyDeprecationWarning
 from astropy.utils.metadata import MetaData
 
@@ -34,17 +33,20 @@ from .test_parameter import ParameterTestMixin
 
 
 scalar_zs = [
-    0, 1, 1100,  # interesting times
+    0,
+    1,
+    1100,  # interesting times
     # FIXME! np.inf breaks some funcs. 0 * inf is an error
     np.float64(3300),  # different type
-    2 * cu.redshift, 3 * u.one  # compatible units
+    2 * cu.redshift,
+    3 * u.one,  # compatible units
 ]
 _zarr = np.linspace(0, 1e5, num=20)
 array_zs = [
     _zarr,  # numpy
     _zarr.tolist(),  # pure python
     Column(_zarr),  # table-like
-    _zarr * cu.redshift  # Quantity
+    _zarr * cu.redshift,  # Quantity
 ]
 valid_zs = scalar_zs + array_zs
 
@@ -63,7 +65,7 @@ class SubCosmology(Cosmology):
     Tcmb0 = Parameter(unit=u.K)
     m_nu = Parameter(unit=u.eV)
 
-    def __init__(self, H0, Tcmb0=0*u.K, m_nu=0*u.eV, name=None, meta=None):
+    def __init__(self, H0, Tcmb0=0 * u.K, m_nu=0 * u.eV, name=None, meta=None):
         super().__init__(name=name, meta=meta)
         self.H0 = H0
         self.Tcmb0 = Tcmb0
@@ -96,9 +98,13 @@ class MetaTestMixin:
         cosmo.meta[key] = cosmo.meta.pop(key)  # will error if immutable
 
 
-class TestCosmology(ParameterTestMixin, MetaTestMixin,
-                    ReadWriteTestMixin, ToFromFormatTestMixin,
-                    metaclass=abc.ABCMeta):
+class TestCosmology(
+    ParameterTestMixin,
+    MetaTestMixin,
+    ReadWriteTestMixin,
+    ToFromFormatTestMixin,
+    metaclass=abc.ABCMeta,
+):
     """Test :class:`astropy.cosmology.Cosmology`.
 
     Subclasses should define tests for:
@@ -116,7 +122,9 @@ class TestCosmology(ParameterTestMixin, MetaTestMixin,
         _COSMOLOGY_CLASSES["SubCosmology"] = SubCosmology
 
         self.cls = SubCosmology
-        self._cls_args = dict(H0=70 * (u.km / u.s / u.Mpc), Tcmb0=2.7 * u.K, m_nu=0.6 * u.eV)
+        self._cls_args = dict(
+            H0=70 * (u.km / u.s / u.Mpc), Tcmb0=2.7 * u.K, m_nu=0.6 * u.eV
+        )
         self.cls_kwargs = dict(name=self.__class__.__name__, meta={"a": "b"})
 
     def teardown_class(self):
@@ -153,6 +161,7 @@ class TestCosmology(ParameterTestMixin, MetaTestMixin,
 
     def test_init_subclass(self, cosmo_cls):
         """Test creating subclasses registers classes and manages Parameters."""
+
         class InitSubclassTest(cosmo_cls):
             pass
 
@@ -174,9 +183,13 @@ class TestCosmology(ParameterTestMixin, MetaTestMixin,
 
         # test matches __init__, but without 'self'
         sig = inspect.signature(cosmo.__init__)  # (instances don't have self)
-        assert set(sig.parameters.keys()) == set(cosmo._init_signature.parameters.keys())
-        assert all(np.all(sig.parameters[k].default == p.default) for k, p in
-                   cosmo._init_signature.parameters.items())
+        assert set(sig.parameters.keys()) == set(
+            cosmo._init_signature.parameters.keys()
+        )
+        assert all(
+            np.all(sig.parameters[k].default == p.default)
+            for k, p in cosmo._init_signature.parameters.items()
+        )
 
     # ---------------------------------------------------------------
     # instance-level
@@ -199,7 +212,12 @@ class TestCosmology(ParameterTestMixin, MetaTestMixin,
         assert cosmo.name == self.cls_kwargs["name"]  # test has expected value
 
         # immutable
-        with pytest.raises(AttributeError, match="can't set"):
+        match = (
+            "can't set"
+            if PYTHON_LT_3_11
+            else f"property 'name' of {cosmo.__class__.__name__!r} object has no setter"
+        )
+        with pytest.raises(AttributeError, match=match):
             cosmo.name = None
 
     def test_is_flat(self, cosmo_cls, cosmo):
@@ -225,7 +243,7 @@ class TestCosmology(ParameterTestMixin, MetaTestMixin,
         assert c.meta == cosmo.meta
 
         # now change a different parameter and see how 'name' changes
-        c = cosmo.clone(meta={})
+        c = cosmo.clone(meta={"test_clone_name": True})
         assert c.name == cosmo.name + " (modified)"
 
     def test_clone_meta(self, cosmo):
@@ -245,12 +263,11 @@ class TestCosmology(ParameterTestMixin, MetaTestMixin,
         Test method ``.clone()`` changing a(many) Parameter(s).
         Nothing here b/c no Parameters.
         """
-        pass
 
     def test_clone_fail_unexpected_arg(self, cosmo):
         """Test when ``.clone()`` gets an unexpected argument."""
         with pytest.raises(TypeError, match="unexpected keyword argument"):
-            newclone = cosmo.clone(not_an_arg=4)
+            cosmo.clone(not_an_arg=4)
 
     def test_clone_fail_positional_arg(self, cosmo):
         with pytest.raises(TypeError, match="1 positional argument"):
@@ -296,22 +313,21 @@ class TestCosmology(ParameterTestMixin, MetaTestMixin,
         # class in string rep
         assert cosmo_cls.__qualname__ in r
         assert r.index(cosmo_cls.__qualname__) == 0  # it's the first thing
-        r = r[len(cosmo_cls.__qualname__) + 1:]  # remove
+        r = r[len(cosmo_cls.__qualname__) + 1 :]  # remove
 
         # name in string rep
         if cosmo.name is not None:
-            assert f"name=\"{cosmo.name}\"" in r
+            assert f'name="{cosmo.name}"' in r
             assert r.index("name=") == 0
-            r = r[6 + len(cosmo.name) + 3:]  # remove
+            r = r[6 + len(cosmo.name) + 3 :]  # remove
 
         # parameters in string rep
         ps = {k: getattr(cosmo, k) for k in cosmo.__parameters__}
-        cps = {k: getattr(cosmo_cls, k) for k in cosmo.__parameters__}
         for k, v in ps.items():
-            sv = format(v, cps[k].format_spec if v is not None else '')
-            assert (k + '=' + sv) in r
+            sv = f"{k}={v}"
+            assert sv in r
             assert r.index(k) == 0
-            r = r[len((k + '=' + sv)) + 2:]  # remove
+            r = r[len(sv) + 2 :]  # remove
 
     # ------------------------------------------------
 
@@ -379,7 +395,6 @@ class CosmologySubclassTest(TestCosmology):
     @abc.abstractmethod
     def setup_class(self):
         """Setup for testing."""
-        pass
 
     # ===============================================================
     # Method & Attribute Tests
@@ -398,11 +413,28 @@ class CosmologySubclassTest(TestCosmology):
 class FlatCosmologyMixinTest:
     """Tests for :class:`astropy.cosmology.core.FlatCosmologyMixin` subclasses.
 
+    The test suite structure mirrors the implementation of the tested code.
+    Just like :class:`astropy.cosmology.FlatCosmologyMixin` is an abstract
+    base class (ABC) that cannot be used by itself, so too is this corresponding
+    test class an ABC mixin.
+
     E.g to use this class::
 
         class TestFlatSomeCosmology(FlatCosmologyMixinTest, TestSomeCosmology):
             ...
     """
+
+    def test_nonflat_class_(self, cosmo_cls, cosmo):
+        """Test :attr:`astropy.cosmology.core.FlatCosmologyMixin.nonflat_cls`."""
+        # Test it's a method on the class
+        assert issubclass(cosmo_cls, cosmo_cls.__nonflatclass__)
+
+        # It also works from the instance. # TODO! as a "metaclassmethod"
+        assert issubclass(cosmo_cls, cosmo.__nonflatclass__)
+
+        # Maybe not the most robust test, but so far all Flat classes have the
+        # name of their parent class.
+        assert cosmo.__nonflatclass__.__name__ in cosmo_cls.__name__
 
     def test_is_flat(self, cosmo_cls, cosmo):
         """Test property ``is_flat``."""
@@ -410,6 +442,35 @@ class FlatCosmologyMixinTest:
 
         # it's always True
         assert cosmo.is_flat is True
+
+    def test_nonflat(self, cosmo):
+        """Test :attr:`astropy.cosmology.core.FlatCosmologyMixin.nonflat`."""
+        assert cosmo.nonflat.is_equivalent(cosmo)
+        assert cosmo.is_equivalent(cosmo.nonflat)
+
+    # ------------------------------------------------
+    # clone
+
+    def test_clone_to_nonflat_equivalent(self, cosmo):
+        """Test method ``.clone()``to_nonflat argument."""
+        # just converting the class
+        nc = cosmo.clone(to_nonflat=True)
+        assert isinstance(nc, cosmo.__nonflatclass__)
+        assert nc == cosmo.nonflat
+
+    @abc.abstractmethod
+    def test_clone_to_nonflat_change_param(self, cosmo):
+        """
+        Test method ``.clone()`` changing a(many) Parameter(s). No parameters
+        are changed here because FlatCosmologyMixin has no Parameters.
+        See class docstring for why this test method exists.
+        """
+        # send to non-flat
+        nc = cosmo.clone(to_nonflat=True)
+        assert isinstance(nc, cosmo.__nonflatclass__)
+        assert nc == cosmo.nonflat
+
+    # ------------------------------------------------
 
     def test_is_equivalent(self, cosmo):
         """Test :meth:`astropy.cosmology.core.FlatCosmologyMixin.is_equivalent`.
@@ -420,6 +481,61 @@ class FlatCosmologyMixinTest:
         vs   FlatFLRWMixinTest -> FlatCosmologyMixinTest -> TestFLRW -> TestCosmology
         """
         CosmologySubclassTest.test_is_equivalent(self, cosmo)
+
+        # See FlatFLRWMixinTest for tests. It's a bit hard here since this class
+        # is for an ABC.
+
+    # ===============================================================
+    # Usage Tests
+
+    def test_subclassing(self, cosmo_cls):
+        """Test when subclassing a flat cosmology."""
+
+        class SubClass1(cosmo_cls):
+            pass
+
+        # The classes have the same non-flat parent class
+        assert SubClass1.__nonflatclass__ is cosmo_cls.__nonflatclass__
+
+        # A more complex example is when Mixin classes are used.
+        class Mixin:
+            pass
+
+        class SubClass2(Mixin, cosmo_cls):
+            pass
+
+        # The classes have the same non-flat parent class
+        assert SubClass2.__nonflatclass__ is cosmo_cls.__nonflatclass__
+
+        # The order of the Mixin should not matter
+        class SubClass3(cosmo_cls, Mixin):
+            pass
+
+        # The classes have the same non-flat parent class
+        assert SubClass3.__nonflatclass__ is cosmo_cls.__nonflatclass__
+
+
+def test__nonflatclass__multiple_nonflat_inheritance():
+    """
+    Test :meth:`astropy.cosmology.core.FlatCosmologyMixin.__nonflatclass__`
+    when there's more than one non-flat class in the inheritance.
+    """
+    # Define a non-operable minimal subclass of Cosmology.
+    class SubCosmology2(Cosmology):
+        def __init__(self, H0, Tcmb0=0 * u.K, m_nu=0 * u.eV, name=None, meta=None):
+            super().__init__(name=name, meta=meta)
+
+        @property
+        def is_flat(self):
+            return False
+
+    # Now make an ambiguous flat cosmology from the two SubCosmologies
+    with pytest.raises(TypeError, match="cannot create a consistent non-flat class"):
+
+        class FlatSubCosmology(FlatCosmologyMixin, SubCosmology, SubCosmology2):
+            @property
+            def nonflat(self):
+                pass
 
 
 # -----------------------------------------------------------------------------

@@ -32,6 +32,7 @@ Consider a concise example starting from a :class:`~pandas.DataFrame`:
 
     >>> import pandas
     >>> import numpy as np
+    >>> from astropy.utils.introspection import minversion
     >>> df = pandas.DataFrame()
     >>> df['a'] = [1, 2, 3]
     >>> times = np.array(['2015-07-04', '2015-07-05', '2015-07-06'], dtype=np.datetime64)
