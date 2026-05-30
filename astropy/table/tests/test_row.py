@@ -83,7 +83,7 @@ class TestRow:
         np_t = self.t.as_array()
         if table_types.Table is MaskedTable:
             with pytest.raises(ValueError):
-                self.t[0] == np_t[0]
+                self.t[0] == np_t[0]  # noqa: B015
         else:
             for row, np_row in zip(self.t, np_t):
                 assert np.all(row == np_row)
@@ -95,7 +95,7 @@ class TestRow:
         np_t["a"] = [0, 0, 0]
         if table_types.Table is MaskedTable:
             with pytest.raises(ValueError):
-                self.t[0] == np_t[0]
+                self.t[0] == np_t[0]  # noqa: B015
         else:
             for row, np_row in zip(self.t, np_t):
                 assert np.all(row != np_row)
@@ -106,7 +106,7 @@ class TestRow:
         np_t = self.t.as_array()
         if table_types.Table is MaskedTable:
             with pytest.raises(ValueError):
-                self.t[0] == np_t[0]
+                self.t[0] == np_t[0]  # noqa: B015
         else:
             for row, np_row in zip(self.t, np_t):
                 assert np.all(np_row == row)
@@ -209,9 +209,7 @@ class TestRow:
     def test_create_rows_from_list(self, table_types):
         """https://github.com/astropy/astropy/issues/8976"""
         orig_tab = table_types.Table([[1, 2, 3], [4, 5, 6]], names=("a", "b"))
-        new_tab = type(orig_tab)(
-            rows=[row for row in orig_tab], names=orig_tab.dtype.names
-        )
+        new_tab = type(orig_tab)(rows=list(orig_tab), names=orig_tab.dtype.names)
         assert np.all(orig_tab == new_tab)
 
     def test_row_keys_values(self, table_types):
@@ -372,3 +370,11 @@ def test_uint_indexing():
     assert repr(t[1]).splitlines() == trepr
     assert repr(t[np.int_(1)]).splitlines() == trepr
     assert repr(t[np.uint(1)]).splitlines() == trepr
+
+
+def test_row_get():
+    row = table.Table({"a": [2, 4], "b": [3, 9]})[0]
+    assert row.get("a") == 2
+    assert row.get("x") is None
+    assert row.get("b", -1) == 3
+    assert row.get("y", -1) == -1

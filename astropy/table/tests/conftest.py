@@ -175,6 +175,7 @@ MIXIN_COLS = {
     "ndarraybig": np.array(
         [(7, "a"), (8, "b"), (9, "c"), (9, "c")], dtype=">i4,|S1"
     ).view(table.NdarrayMixin),
+    "stokescoord": coordinates.StokesCoord(range(1, 5)),
 }
 MIXIN_COLS["earthlocation"] = coordinates.EarthLocation(
     lon=MIXIN_COLS["longitude"],
@@ -203,8 +204,7 @@ def mixin_cols(request):
     return cols
 
 
-@pytest.fixture(params=[False, True])
-def T1(request):
+def _get_test_table():
     T = QTable.read(
         [
             " a b c d",
@@ -223,7 +223,42 @@ def T1(request):
     T.meta.update({"ta": 1})
     T["c"].meta.update({"a": 1})
     T["c"].description = "column c"
+    return T
+
+
+@pytest.fixture()
+def T1b(request):
+    """Basic table"""
+    T = _get_test_table()
+    return T
+
+
+@pytest.fixture(params=[False, True])
+def T1(request):
+    """Basic table with or without index on integer column a"""
+    T = _get_test_table()
     if request.param:
+        T.add_index("a")
+    return T
+
+
+@pytest.fixture(params=[False, True])
+def T1q(request):
+    """Basic table where a column is integer or Quantity"""
+    T = _get_test_table()
+    if request.param:
+        T["a"] = T["a"] * u.m
+    return T
+
+
+@pytest.fixture(params=[(False, False), (False, True), (True, False), (True, True)])
+def T1m(request):
+    """Basic table with or without index on column a, where a is integer or Quantity"""
+    T = _get_test_table()
+    add_index, is_quantity = request.param
+    if is_quantity:
+        T["a"] = T["a"] * u.m
+    if add_index:
         T.add_index("a")
     return T
 
