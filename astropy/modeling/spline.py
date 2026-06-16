@@ -215,6 +215,16 @@ class _Spline(FittableModel):
         self._t = None
         self._degree = degree
 
+    def __getstate__(self):
+        return {
+            "t": self._t,
+            "c": self._c,
+            "k": self._degree,
+        }
+
+    def __setstate__(self, state):
+        return self.__init__(knots=state["t"], coeffs=state["c"], degree=state["k"])
+
 
 class Spline1D(_Spline):
     """
@@ -487,7 +497,7 @@ class Spline1D(_Spline):
             raise ValueError(f"Knots: {knots} must be iterable or value")
 
         # check that knots form a viable spline
-        self.bspline
+        self.bspline  # noqa: B018
 
     def _init_coeffs(self, coeffs=None):
         if coeffs is None:
@@ -496,7 +506,7 @@ class Spline1D(_Spline):
             self._c = np.array(coeffs)
 
         # check that coeffs form a viable spline
-        self.bspline
+        self.bspline  # noqa: B018
 
     def _init_data(self, knots, coeffs, bounds=None):
         self._init_knots(knots, *self._init_bounds(bounds))

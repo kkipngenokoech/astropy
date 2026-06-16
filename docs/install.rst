@@ -10,7 +10,7 @@ Installing ``astropy``
 If you are new to Python and/or do not have familiarity with `Python virtual
 environments <https://docs.python.org/3/tutorial/venv.html>`_, then we recommend
 starting by installing the `Anaconda Distribution
-<https://www.anaconda.com/distribution/>`_. This works on all platforms (linux,
+<https://www.anaconda.com/download/>`_. This works on all platforms (linux,
 Mac, Windows) and installs a full-featured scientific Python in a user directory
 without requiring root permissions.
 
@@ -71,7 +71,7 @@ To install ``astropy`` using conda run::
     conda install astropy
 
 ``astropy`` is installed by default with the `Anaconda Distribution
-<https://www.anaconda.com/distribution/>`_. To update to the latest version run::
+<https://www.anaconda.com/download/>`_. To update to the latest version run::
 
     conda update astropy
 
@@ -88,7 +88,7 @@ or::
 
     conda install -c conda-forge -c defaults scipy matplotlib \
       h5py beautifulsoup4 html5lib bleach pandas sortedcontainers \
-      pytz setuptools mpmath bottleneck jplephem asdf pyarrow
+      pytz setuptools mpmath bottleneck jplephem asdf-astropy pyarrow
 
 To also be able to run tests (see below) and support :ref:`builddocs` use the
 following. We use ``pip`` for these packages to ensure getting the latest
@@ -190,10 +190,10 @@ The further dependencies provide more specific features:
 - `setuptools <https://setuptools.readthedocs.io>`_: Used for discovery of
   entry points which are used to insert fitters into `astropy.modeling.fitting`.
 
-- `mpmath <http://mpmath.org/>`_: Used for the 'kraft-burrows-nousek'
+- `mpmath <https://mpmath.org/>`_: Used for the 'kraft-burrows-nousek'
   interval in `~astropy.stats.poisson_conf_interval`.
 
-- `asdf <https://github.com/spacetelescope/asdf>`_ |minimum_asdf_version| or later: Enables the
+- `asdf-astropy <https://github.com/astropy/asdf-astropy>`_ |minimum_asdf_astropy_version| or later: Enables the
   serialization of various Astropy classes into a portable, hierarchical,
   human-readable representation.
 
