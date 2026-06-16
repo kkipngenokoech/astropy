@@ -66,7 +66,7 @@ class Card(_Verify):
     # followed by an optional comment
     _strg = r"\'(?P<strg>([ -~]+?|\'\'|) *?)\'(?=$|/| )"
     _comm_field = r"(?P<comm_field>(?P<sepr>/ *)(?P<comm>(.|\n)*))"
-    _strg_comment_RE = re.compile(f"({_strg})? *{_comm_field}?")
+    _strg_comment_RE = re.compile(f"({_strg})? *{_comm_field}?$")
 
     # FSC commentary card string which must contain printable ASCII characters.
     # Note: \Z matches the end of the string without allowing newlines
@@ -508,7 +508,7 @@ class Card(_Verify):
             self._field_specifier = field_specifier
             # The keyword need also be updated
             keyword = self._keyword.split(".", 1)[0]
-            self._keyword = ".".join([keyword, field_specifier])
+            self._keyword = f"{keyword}.{field_specifier}"
             self._modified = True
 
     @field_specifier.deleter
@@ -697,7 +697,7 @@ class Card(_Verify):
         attributes if the card was determined to be a RVKC.
         """
         keyword_upper = keyword.upper()
-        self._keyword = ".".join((keyword_upper, field_specifier))
+        self._keyword = f"{keyword_upper}.{field_specifier}"
         self._rawkeyword = keyword_upper
         self._field_specifier = field_specifier
         self._value = _int_or_float(value)
@@ -859,7 +859,7 @@ class Card(_Verify):
                     return kw, vc
 
                 value = m.group("strg") or ""
-                value = value.rstrip().replace("''", "'")
+                value = value.rstrip()
                 if value and value[-1] == "&":
                     value = value[:-1]
                 values.append(value)
@@ -897,7 +897,7 @@ class Card(_Verify):
     def _fix_keyword(self):
         if self.field_specifier:
             keyword, field_specifier = self._keyword.split(".", 1)
-            self._keyword = ".".join([keyword.upper(), field_specifier])
+            self._keyword = f"{keyword.upper()}.{field_specifier}"
         else:
             self._keyword = self._keyword.upper()
         self._modified = True
@@ -1010,7 +1010,7 @@ class Card(_Verify):
             delimiter = ""
 
         # put all parts together
-        output = "".join([keyword, delimiter, value, comment])
+        output = f"{keyword}{delimiter}{value}{comment}"
 
         # For HIERARCH cards we can save a bit of space if necessary by
         # removing the space between the keyword and the equals sign; I'm
@@ -1123,14 +1123,14 @@ class Card(_Verify):
             and self._image.find("=") != 8
         ):
             errs.append(
-                dict(
-                    err_text=(
+                {
+                    "err_text": (
                         "Card {!r} is not FITS standard (equal sign not "
                         "at column 8).".format(self.keyword)
                     ),
-                    fix_text=fix_text,
-                    fix=self._fix_value,
-                )
+                    "fix_text": fix_text,
+                    "fix": self._fix_value,
+                }
             )
 
         # verify the key, it is never fixable
@@ -1146,11 +1146,11 @@ class Card(_Verify):
                 if keyword != keyword.upper():
                     # Keyword should be uppercase unless it's a HIERARCH card
                     errs.append(
-                        dict(
-                            err_text=f"Card keyword {keyword!r} is not upper case.",
-                            fix_text=fix_text,
-                            fix=self._fix_keyword,
-                        )
+                        {
+                            "err_text": f"Card keyword {keyword!r} is not upper case.",
+                            "fix_text": fix_text,
+                            "fix": self._fix_keyword,
+                        }
                     )
 
             keyword = self.keyword
@@ -1159,7 +1159,7 @@ class Card(_Verify):
 
             if not self._keywd_FSC_RE.match(keyword):
                 errs.append(
-                    dict(err_text=f"Illegal keyword name {keyword!r}", fixable=False)
+                    {"err_text": f"Illegal keyword name {keyword!r}", "fixable": False}
                 )
 
         # verify the value, it may be fixable
@@ -1169,13 +1169,13 @@ class Card(_Verify):
             # contains only printable ASCII characters
             if not self._ascii_text_re.match(valuecomment):
                 errs.append(
-                    dict(
-                        err_text=(
+                    {
+                        "err_text": (
                             f"Unprintable string {valuecomment!r}; commentary "
                             "cards may only contain printable ASCII characters"
                         ),
-                        fixable=False,
-                    )
+                        "fixable": False,
+                    }
                 )
         else:
             if not self._valuemodified:
@@ -1186,14 +1186,14 @@ class Card(_Verify):
                 # https://github.com/astropy/astropy/issues/5408
                 if m is None:
                     errs.append(
-                        dict(
-                            err_text=(
+                        {
+                            "err_text": (
                                 f"Card {self.keyword!r} is not FITS standard "
                                 f"(invalid value string: {valuecomment!r})."
                             ),
-                            fix_text=fix_text,
-                            fix=self._fix_value,
-                        )
+                            "fix_text": fix_text,
+                            "fix": self._fix_value,
+                        }
                     )
 
         # verify the comment (string), it is never fixable
@@ -1203,13 +1203,13 @@ class Card(_Verify):
             if comment is not None:
                 if not self._ascii_text_re.match(comment):
                     errs.append(
-                        dict(
-                            err_text=(
+                        {
+                            "err_text": (
                                 f"Unprintable string {comment!r}; header comments "
                                 "may only contain printable ASCII characters"
                             ),
-                            fixable=False,
-                        )
+                            "fixable": False,
+                        }
                     )
 
         errs = _ErrList([self.run_option(option, **err) for err in errs])

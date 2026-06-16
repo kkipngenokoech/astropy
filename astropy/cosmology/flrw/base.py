@@ -6,7 +6,7 @@ import warnings
 from abc import abstractmethod
 from math import exp, floor, log, pi, sqrt
 from numbers import Number
-from typing import Any, Mapping, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
 from numpy import inf, sin
@@ -14,8 +14,8 @@ from numpy import inf, sin
 import astropy.constants as const
 import astropy.units as u
 from astropy.cosmology.core import Cosmology, FlatCosmologyMixin
-from astropy.cosmology.parameter import (
-    Parameter,
+from astropy.cosmology.parameter import Parameter
+from astropy.cosmology.parameter._converter import (
     _validate_non_negative,
     _validate_with_unit,
 )
@@ -24,6 +24,14 @@ from astropy.utils.compat.optional_deps import HAS_SCIPY
 from astropy.utils.decorators import lazyproperty
 from astropy.utils.exceptions import AstropyUserWarning
 
+__all__ = ["FLRW", "FlatFLRWMixin"]
+
+__doctest_requires__ = {"*": ["scipy"]}
+
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
 # isort: split
 if HAS_SCIPY:
     from scipy.integrate import quad
@@ -31,11 +39,6 @@ else:
 
     def quad(*args, **kwargs):
         raise ModuleNotFoundError("No module named 'scipy.integrate'")
-
-
-__all__ = ["FLRW", "FlatFLRWMixin"]
-
-__doctest_requires__ = {"*": ["scipy"]}
 
 
 ##############################################################################
@@ -63,7 +66,39 @@ _FlatFLRWMixinT = TypeVar("_FlatFLRWMixinT", bound="FlatFLRWMixin")
 ##############################################################################
 
 
-class FLRW(Cosmology):
+class _ScaleFactorMixin:
+    @property
+    def scale_factor0(self):
+        r"""Scale factor at redshift 0.
+
+        The scale factor is defined as :math:`a = \frac{a_0}{1 + z}`. The common
+        convention is to set :math:`a_0 = 1`. However, in some cases, e.g. in some old
+        CMB papers, :math:`a_0` is used to normalize `a` to be a convenient number at
+        the redshift of interest for that paper. Explicitly using :math:`a_0` in both
+        calculation and code avoids ambiguity.
+        """
+        return u.Quantity(self.scale_factor(0), unit=u.one)
+
+    def scale_factor(self, z):
+        """Scale factor at redshift ``z``.
+
+        The scale factor is defined as :math:`a = 1 / (1 + z)`.
+
+        Parameters
+        ----------
+        z : Quantity-like ['redshift'], array-like, or `~numbers.Number`
+            Input redshift.
+
+        Returns
+        -------
+        a : ndarray or float
+            Scale factor at each input redshift.
+            Returns `float` if the input is scalar.
+        """
+        return 1.0 / (aszarr(z) + 1.0)
+
+
+class FLRW(Cosmology, _ScaleFactorMixin):
     """
     A class describing an isotropic and homogeneous
     (Friedmann-Lemaitre-Robertson-Walker) cosmology.
@@ -896,24 +931,6 @@ class FLRW(Cosmology):
             Hubble parameter at each input redshift.
         """
         return self._H0 * self.efunc(z)
-
-    def scale_factor(self, z):
-        """Scale factor at redshift ``z``.
-
-        The scale factor is defined as :math:`a = 1 / (1 + z)`.
-
-        Parameters
-        ----------
-        z : Quantity-like ['redshift'], array-like, or `~numbers.Number`
-            Input redshift.
-
-        Returns
-        -------
-        a : ndarray or float
-            Scale factor at each input redshift.
-            Returns `float` if the input is scalar.
-        """
-        return 1.0 / (aszarr(z) + 1.0)
 
     def lookback_time(self, z):
         """Lookback time in Gyr to redshift ``z``.

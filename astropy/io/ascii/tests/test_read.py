@@ -681,7 +681,7 @@ def test_default_missing(fast_reader):
     """
     Read a table with empty values and ensure that corresponding entries are masked
     """
-    table = "\n".join(
+    table = "\n".join(  # noqa: FLY002
         [
             "a,b,c,d",
             "1,3,,",
@@ -704,7 +704,7 @@ def test_default_missing(fast_reader):
     assert dat["a"].dtype.kind == "i"
 
     # Same test with a fixed width reader
-    table = "\n".join(
+    table = "\n".join(  # noqa: FLY002
         [
             " a   b   c   d ",
             "--- --- --- ---",
@@ -1352,7 +1352,13 @@ def test_guessing_file_object():
 def test_pformat_roundtrip():
     """Check that the screen output of ``print tab`` can be read. See #3025."""
     """Read a table with empty values and ensure that corresponding entries are masked"""
-    table = "\n".join(["a,b,c,d", "1,3,1.11,1", "2, 2, 4.0 , ss "])
+    table = "\n".join(  # noqa: FLY002
+        [
+            "a,b,c,d",
+            "1,3,1.11,1",
+            "2, 2, 4.0 , ss ",
+        ]
+    )
     dat = ascii.read(table)
     out = ascii.read(dat.pformat())
     assert len(dat) == len(out)
@@ -1563,9 +1569,9 @@ def test_table_with_no_newline():
 
     # Put a single line of column names but with no newline
     for kwargs in [
-        dict(),
-        dict(guess=False, fast_reader=False, format="basic"),
-        dict(guess=False, fast_reader=True, format="fast_basic"),
+        {},
+        {"guess": False, "fast_reader": False, "format": "basic"},
+        {"guess": False, "fast_reader": True, "format": "fast_basic"},
     ]:
         table = BytesIO()
         table.write(b"a b")
@@ -1848,7 +1854,7 @@ def test_read_non_ascii():
 def test_kwargs_dict_guess(enable):
     """Test that fast_reader dictionary is preserved through guessing sequence."""
     # Fails for enable=(True, 'force') - #5578
-    ascii.read("a\tb\n 1\t2\n3\t 4.0", fast_reader=dict(enable=enable))
+    ascii.read("a\tb\n 1\t2\n3\t 4.0", fast_reader={"enable": enable})
     assert get_read_trace()[-1]["kwargs"]["Reader"] is (
         ascii.Tab if (enable is False) else ascii.FastTab
     )
