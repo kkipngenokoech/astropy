@@ -72,7 +72,8 @@ def _line_type(line, delimiter=None):
     line = line.strip()
     if not line:
         return "comment"
-    match = _line_type_re.match(line)
+    # Convert line to uppercase for case-insensitive command matching
+    match = _line_type_re.match(line.upper())
 
     if match is None:
         raise ValueError(f"Unrecognized QDP line: {line}")
@@ -80,7 +81,8 @@ def _line_type(line, delimiter=None):
         if val is None:
             continue
         if type_ == "data":
-            return f"data,{len(val.split(sep=delimiter))}"
+            # Use original line for data parsing to preserve case
+            return f"data,{len(line.split(sep=delimiter))}"
         else:
             return type_
 
