@@ -3,13 +3,13 @@
 __all__ = ["quantity_input"]
 
 import inspect
+import typing as T
 from collections.abc import Sequence
 from functools import wraps
 from numbers import Number
 
 import numpy as np
 
-from . import _typing as T
 from .core import (
     Unit,
     UnitBase,
@@ -91,10 +91,10 @@ def _validate_arg_value(
             "be in units convertible to"
         )
         if len(targets) > 1:
-            targ_names = ", ".join([f"'{str(targ)}'" for targ in targets])
+            targ_names = ", ".join([f"'{targ}'" for targ in targets])
             raise UnitsError(f"{error_msg} one of: {targ_names}.")
         else:
-            raise UnitsError(f"{error_msg} '{str(targets[0])}'.")
+            raise UnitsError(f"{error_msg} '{targets[0]}'.")
 
 
 def _parse_annotation(target):

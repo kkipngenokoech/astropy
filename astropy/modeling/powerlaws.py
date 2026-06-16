@@ -68,9 +68,9 @@ class PowerLaw1D(Fittable1DModel):
 
     @property
     def input_units(self):
-        if self.x_0.unit is None:
+        if self.x_0.input_unit is None:
             return None
-        return {self.inputs[0]: self.x_0.unit}
+        return {self.inputs[0]: self.x_0.input_unit}
 
     def _parameter_units_for_data_units(self, inputs_unit, outputs_unit):
         return {
@@ -141,9 +141,9 @@ class BrokenPowerLaw1D(Fittable1DModel):
 
     @property
     def input_units(self):
-        if self.x_break.unit is None:
+        if self.x_break.input_unit is None:
             return None
-        return {self.inputs[0]: self.x_break.unit}
+        return {self.inputs[0]: self.x_break.input_unit}
 
     def _parameter_units_for_data_units(self, inputs_unit, outputs_unit):
         return {
@@ -253,15 +253,17 @@ class SmoothlyBrokenPowerLaw1D(Fittable1DModel):
     alpha_2 = Parameter(default=2, description="Power law index after break point")
     delta = Parameter(default=1, min=1.0e-3, description="Smoothness Parameter")
 
-    @amplitude.validator
-    def amplitude(self, value):
+    def _amplitude_validator(self, value):
         if np.any(value <= 0):
             raise InputParameterError("amplitude parameter must be > 0")
 
-    @delta.validator
-    def delta(self, value):
+    amplitude._validator = _amplitude_validator
+
+    def _delta_validator(self, value):
         if np.any(value < 0.001):
             raise InputParameterError("delta parameter must be >= 0.001")
+
+    delta._validator = _delta_validator
 
     @staticmethod
     def evaluate(x, amplitude, x_break, alpha_1, alpha_2, delta):
@@ -383,9 +385,9 @@ class SmoothlyBrokenPowerLaw1D(Fittable1DModel):
 
     @property
     def input_units(self):
-        if self.x_break.unit is None:
+        if self.x_break.input_unit is None:
             return None
-        return {self.inputs[0]: self.x_break.unit}
+        return {self.inputs[0]: self.x_break.input_unit}
 
     def _parameter_units_for_data_units(self, inputs_unit, outputs_unit):
         return {
@@ -449,9 +451,9 @@ class ExponentialCutoffPowerLaw1D(Fittable1DModel):
 
     @property
     def input_units(self):
-        if self.x_0.unit is None:
+        if self.x_0.input_unit is None:
             return None
-        return {self.inputs[0]: self.x_0.unit}
+        return {self.inputs[0]: self.x_0.input_unit}
 
     def _parameter_units_for_data_units(self, inputs_unit, outputs_unit):
         return {
@@ -518,9 +520,9 @@ class LogParabola1D(Fittable1DModel):
 
     @property
     def input_units(self):
-        if self.x_0.unit is None:
+        if self.x_0.input_unit is None:
             return None
-        return {self.inputs[0]: self.x_0.unit}
+        return {self.inputs[0]: self.x_0.input_unit}
 
     def _parameter_units_for_data_units(self, inputs_unit, outputs_unit):
         return {
@@ -647,9 +649,9 @@ class Schechter1D(Fittable1DModel):
 
     @property
     def input_units(self):
-        if self.m_star.unit is None:
+        if self.m_star.input_unit is None:
             return None
-        return {self.inputs[0]: self.m_star.unit}
+        return {self.inputs[0]: self.m_star.input_unit}
 
     def _parameter_units_for_data_units(self, inputs_unit, outputs_unit):
         return {
