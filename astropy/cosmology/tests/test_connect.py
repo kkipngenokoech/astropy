@@ -7,18 +7,19 @@ import pytest
 
 from astropy import cosmology
 from astropy.cosmology import Cosmology, w0wzCDM
-from astropy.cosmology.connect import readwrite_registry
-from astropy.cosmology.io.tests import (
+from astropy.cosmology._io.tests import (
     test_cosmology,
     test_ecsv,
     test_html,
     test_json,
+    test_latex,
     test_mapping,
     test_model,
     test_row,
     test_table,
     test_yaml,
 )
+from astropy.cosmology.connect import readwrite_registry
 from astropy.table import QTable, Row
 from astropy.utils.compat.optional_deps import HAS_BS4
 
@@ -32,7 +33,9 @@ cosmo_instances = cosmology.realizations.available
 readwrite_formats = {
     ("ascii.ecsv", True, True),
     ("ascii.html", False, HAS_BS4),
+    ("ascii.latex", False, True),
     ("json", True, True),
+    ("latex", False, True),
 }
 
 
@@ -55,6 +58,7 @@ class ReadWriteTestMixin(
     test_ecsv.ReadWriteECSVTestMixin,
     test_html.ReadWriteHTMLTestMixin,
     test_json.ReadWriteJSONTestMixin,
+    test_latex.WriteLATEXTestMixin,
 ):
     """
     Tests for a CosmologyRead/Write on a |Cosmology|.
@@ -75,6 +79,8 @@ class ReadWriteTestMixin(
         """
         if not has_deps:
             pytest.skip("missing a dependency")
+        if (format, Cosmology) not in readwrite_registry._readers:
+            pytest.xfail(f"no read method is registered for format {format!r}")
 
         fname = str(tmp_path / f"{cosmo.name}.{format}")
         cosmo.write(fname, format=format)
@@ -103,6 +109,8 @@ class ReadWriteTestMixin(
         """
         if not has_deps:
             pytest.skip("missing a dependency")
+        if (format, Cosmology) not in readwrite_registry._readers:
+            pytest.xfail(f"no read method is registered for format {format!r}")
 
         fname = str(tmp_path / f"{cosmo.name}.{format}")
         cosmo.write(fname, format=format)
@@ -140,6 +148,8 @@ class TestCosmologyReadWrite(ReadWriteTestMixin):
     def test_write_methods_have_explicit_kwarg_overwrite(self, format, _, has_deps):
         if not has_deps:
             pytest.skip("missing a dependency")
+        if (format, Cosmology) not in readwrite_registry._readers:
+            pytest.xfail(f"no read method is registered for format {format!r}")
 
         writer = readwrite_registry.get_writer(format, Cosmology)
         # test in signature
@@ -156,6 +166,8 @@ class TestCosmologyReadWrite(ReadWriteTestMixin):
         """Test when the reader class doesn't match the file."""
         if not has_deps:
             pytest.skip("missing a dependency")
+        if (format, Cosmology) not in readwrite_registry._readers:
+            pytest.xfail(f"no read method is registered for format {format!r}")
 
         fname = tmp_path / f"{cosmo.name}.{format}"
         cosmo.write(fname, format=format)

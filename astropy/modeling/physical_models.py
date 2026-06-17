@@ -329,9 +329,9 @@ class Drude1D(Fittable1DModel):
 
     @property
     def input_units(self):
-        if self.x_0.unit is None:
+        if self.x_0.input_unit is None:
             return None
-        return {self.inputs[0]: self.x_0.unit}
+        return {self.inputs[0]: self.x_0.input_unit}
 
     def _parameter_units_for_data_units(self, inputs_unit, outputs_unit):
         return {
@@ -346,11 +346,12 @@ class Drude1D(Fittable1DModel):
             return None
         return {self.outputs[0]: self.amplitude.unit}
 
-    @x_0.validator
-    def x_0(self, val):
+    def _x_0_validator(self, val):
         """Ensure `x_0` is not 0."""
         if np.any(val == 0):
             raise InputParameterError("0 is not an allowed value for x_0")
+
+    x_0._validator = _x_0_validator
 
     def bounding_box(self, factor=50):
         """Tuple defining the default ``bounding_box`` limits,
@@ -418,10 +419,13 @@ class Plummer1D(Fittable1DModel):
 
     @property
     def input_units(self):
-        if self.mass.unit is None and self.r_plum.unit is None:
+        mass_unit = self.mass.input_unit
+        r_plum_unit = self.r_plum.input_unit
+
+        if mass_unit is None and r_plum_unit is None:
             return None
-        else:
-            return {self.inputs[0]: self.r_plum.unit}
+
+        return {self.inputs[0]: r_plum_unit}
 
     def _parameter_units_for_data_units(self, inputs_unit, outputs_unit):
         return {

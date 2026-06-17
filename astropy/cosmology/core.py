@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import abc
 import inspect
-from typing import TYPE_CHECKING, Any, Mapping, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
 
@@ -21,6 +21,8 @@ from .connect import (
 from .parameter import Parameter
 
 if TYPE_CHECKING:  # pragma: no cover
+    from collections.abc import Mapping
+
     from astropy.cosmology.funcs.comparison import _FormatType
 
 # Originally authored by Andrew Becker (becker@astro.washington.edu),
@@ -68,12 +70,16 @@ class Cosmology(metaclass=abc.ABCMeta):
 
     Notes
     -----
-    Class instances are static -- you cannot (and should not) change the values
-    of the parameters.  That is, all of the above attributes (except meta) are
-    read only.
+    Class instances are static -- you cannot (and should not) change the
+    values of the parameters.  That is, all of the above attributes
+    (except meta) are read only.
 
     For details on how to create performant custom subclasses, see the
     documentation on :ref:`astropy-cosmology-fast-integrals`.
+
+    Cosmology subclasses are automatically registered in a global registry
+    and with various I/O methods. To turn off or change this registration,
+    override the ``_register_cls`` classmethod in the subclass.
     """
 
     meta = MetaData()
@@ -123,8 +129,10 @@ class Cosmology(metaclass=abc.ABCMeta):
         cls.__all_parameters__ = cls.__parameters__ + tuple(derived_parameters)
 
         # -------------------
-        # register as a Cosmology subclass
-        _COSMOLOGY_CLASSES[cls.__qualname__] = cls
+        # Registration
+
+        if not inspect.isabstract(cls):  # skip abstract classes
+            cls._register_cls()
 
     @classproperty(lazy=True)
     def _init_signature(cls):
@@ -133,6 +141,16 @@ class Cosmology(metaclass=abc.ABCMeta):
         sig = inspect.signature(cls.__init__)
         sig = sig.replace(parameters=list(sig.parameters.values())[1:])
         return sig
+
+    @classmethod
+    def _register_cls(cls):
+        # register class
+        _COSMOLOGY_CLASSES[cls.__qualname__] = cls
+
+        # register to YAML
+        from astropy.cosmology._io.yaml import register_cosmology_yaml
+
+        register_cosmology_yaml(cls)
 
     # ---------------------------------------------------------------
 
@@ -419,7 +437,7 @@ class FlatCosmologyMixin(metaclass=abc.ABCMeta):
 
         # Determine the non-flat class.
         # This will raise a TypeError if the MRO is inconsistent.
-        cls.__nonflatclass__
+        cls.__nonflatclass__  # noqa: B018
 
     # ===============================================================
 
@@ -587,26 +605,3 @@ class FlatCosmologyMixin(metaclass=abc.ABCMeta):
         )
 
         return params_eq
-
-
-# -----------------------------------------------------------------------------
-
-
-def __getattr__(attr):
-    from . import flrw
-
-    if hasattr(flrw, attr) and attr not in ("__path__",):
-        import warnings
-
-        from astropy.utils.exceptions import AstropyDeprecationWarning
-
-        warnings.warn(
-            f"`astropy.cosmology.core.{attr}` has been moved (since v5.0) and "
-            f"should be imported as ``from astropy.cosmology import {attr}``."
-            " In future this will raise an exception.",
-            AstropyDeprecationWarning,
-        )
-
-        return getattr(flrw, attr)
-
-    raise AttributeError(f"module {__name__!r} has no attribute {attr!r}.")
