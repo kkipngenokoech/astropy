@@ -18,6 +18,7 @@ from .errors import *
 from .funcs import *
 from .matching import *
 from .name_resolve import *
+from .polarization import *
 from .representation import *
 from .sky_coordinate import *
 from .solar_system import *
