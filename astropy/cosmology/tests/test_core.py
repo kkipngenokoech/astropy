@@ -2,19 +2,13 @@
 
 """Testing :mod:`astropy.cosmology.core`."""
 
-##############################################################################
-# IMPORTS
-
-# STDLIB
 import abc
 import inspect
 import pickle
 
-# THIRD PARTY
 import numpy as np
 import pytest
 
-# LOCAL
 import astropy.cosmology.units as cu
 import astropy.units as u
 from astropy.cosmology import Cosmology, FlatCosmologyMixin
@@ -22,7 +16,6 @@ from astropy.cosmology.core import _COSMOLOGY_CLASSES
 from astropy.cosmology.parameter import Parameter
 from astropy.table import Column, QTable, Table
 from astropy.utils.compat import PYTHON_LT_3_11
-from astropy.utils.exceptions import AstropyDeprecationWarning
 from astropy.utils.metadata import MetaData
 
 from .test_connect import ReadWriteTestMixin, ToFromFormatTestMixin
@@ -148,6 +141,9 @@ class CosmologyTest(
     def test_init_subclass(self, cosmo_cls):
         """Test creating subclasses registers classes and manages Parameters."""
 
+        # -----------------------------------------------------------
+        # Normal subclass creation
+
         class InitSubclassTest(cosmo_cls):
             pass
 
@@ -157,6 +153,18 @@ class CosmologyTest(
         # test and cleanup registry
         registrant = _COSMOLOGY_CLASSES.pop(InitSubclassTest.__qualname__)
         assert registrant is InitSubclassTest
+
+        # -----------------------------------------------------------
+        # Skip
+
+        class UnRegisteredSubclassTest(cosmo_cls):
+            @classmethod
+            def _register_cls(cls):
+                """Override to not register."""
+                pass
+
+        assert UnRegisteredSubclassTest.__parameters__ == cosmo_cls.__parameters__
+        assert UnRegisteredSubclassTest.__qualname__ not in _COSMOLOGY_CLASSES
 
     def test_init_signature(self, cosmo_cls, cosmo):
         """Test class-property ``_init_signature``."""
@@ -537,18 +545,3 @@ def test__nonflatclass__multiple_nonflat_inheritance():
             @property
             def nonflat(self):
                 pass
-
-
-# -----------------------------------------------------------------------------
-
-
-def test_flrw_moved_deprecation():
-    """Test the deprecation warning about the move of FLRW classes."""
-    from astropy.cosmology import flrw
-
-    # it's deprecated to import `flrw/*` from `core.py`
-    with pytest.warns(AstropyDeprecationWarning):
-        from astropy.cosmology.core import FLRW
-
-    # but they are the same object
-    assert FLRW is flrw.FLRW

@@ -1556,7 +1556,7 @@ def test_cunit():
     assert w1.wcs.cunit != ["a", "b", "c"]
     # Comparison is not implemented TypeError will raise
     with pytest.raises(TypeError):
-        w1.wcs.cunit < w2.wcs.cunit
+        w1.wcs.cunit < w2.wcs.cunit  # noqa: B015
 
 
 class TestWcsWithTime:
@@ -1794,7 +1794,7 @@ def test_swapaxes_same_val_roundtrip():
     w.wcs.cdelt = [1.0, 1.0, 1.0]
     w.wcs.set()
     axes_order = [3, 2, 1]
-    axes_order0 = list(i - 1 for i in axes_order)
+    axes_order0 = [i - 1 for i in axes_order]
     ws = w.sub(axes_order)
     imcoord = np.array([3, 5, 7])
     imcoords = imcoord[axes_order0]

@@ -13,8 +13,8 @@ affiliated packages.
 Testing Framework
 *****************
 
-The testing framework used by astropy (and packages using the :doc:`Astropy
-package template <astropy-package-template>`) is the `pytest`_ framework.
+The testing framework used by astropy (and packages using the
+`OpenAstronomy Packaging Guide`_) is the `pytest`_ framework.
 
 .. _testing-dependencies:
 
@@ -101,7 +101,7 @@ will run checks using the ``ruff`` tool.
     It is suggested that you automate the code-style checks using the provided
     pre-commit hook, as described in the :ref:`pre-commit` section.
 
-Is is possible to pass options to pytest when running tox - to do this, add a
+It is possible to pass options to pytest when running tox - to do this, add a
 ``--`` after the regular tox command, and anything after this will be passed to
 pytest, e.g.::
 
@@ -479,7 +479,7 @@ Class-level setup/teardown
 --------------------------
 
 Tests can be organized into classes that have their own setup/teardown
-functions. In the following ::
+functions. In the following::
 
     def add_nums(x, y):
         """Add two numbers."""
@@ -763,7 +763,7 @@ hashes and images.
 
 To run the Astropy tests with the image comparison, use e.g.::
 
-    tox -e py39-test-image-mpl322-cov
+    tox -e py39-test-image-mpl334-cov
 
 However, note that the output can be sensitive to the operating system and
 specific version of libraries such as freetype. In general, using tox will
@@ -828,7 +828,7 @@ generate it, you should run the tests the first time with::
 
 for example::
 
-    tox -e py39-test-image-mpl322-cov -- --mpl-generate-hash-library=astropy/tests/figures/py39-test-image-mpl322-cov.json
+    tox -e py39-test-image-mpl334-cov -- --mpl-generate-hash-library=astropy/tests/figures/py39-test-image-mpl334-cov.json
 
 Then add and commit the new JSON file and try running the tests again. The tests
 may fail in the continuous integration if e.g. the freetype version does not

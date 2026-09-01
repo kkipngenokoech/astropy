@@ -7,7 +7,6 @@ classes.
 
 # Standard library
 import copy
-import inspect
 import warnings
 from collections import defaultdict, namedtuple
 
@@ -394,7 +393,7 @@ class BaseCoordinateFrame(ShapedLikeNDArray):
         if representation_type is None:
             representation_type = self.default_representation
 
-        if inspect.isclass(differential_type) and issubclass(
+        if isinstance(differential_type, type) and issubclass(
             differential_type, r.BaseDifferential
         ):
             # TODO: assumes the differential class is for the velocity
@@ -938,7 +937,7 @@ class BaseCoordinateFrame(ShapedLikeNDArray):
         # This is to provide a slightly nicer error message if the user tries
         # to use frame_obj.representation instead of frame_obj.data to get the
         # underlying representation object [e.g., #2890]
-        if inspect.isclass(data):
+        if isinstance(data, type):
             raise TypeError(
                 "Class passed as data instead of a representation instance. If you"
                 " called frame.representation, this returns the representation class."
@@ -1276,7 +1275,7 @@ class BaseCoordinateFrame(ShapedLikeNDArray):
                 " https://github.com/astropy/astropy/issues/6280"
             )
 
-        if inspect.isclass(new_frame):
+        if isinstance(new_frame, type):
             warnings.warn(
                 "Transforming a frame instance to a frame class (as opposed to another "
                 "frame instance) will not be supported in the future.  Either "
@@ -1334,7 +1333,7 @@ class BaseCoordinateFrame(ShapedLikeNDArray):
         transformation between two objects of the same frame class but with
         different attributes.
         """
-        new_frame_cls = new_frame if inspect.isclass(new_frame) else new_frame.__class__
+        new_frame_cls = new_frame if isinstance(new_frame, type) else type(new_frame)
         trans = frame_transform_graph.get_transform(self.__class__, new_frame_cls)
 
         if trans is None:
@@ -1736,8 +1735,9 @@ class BaseCoordinateFrame(ShapedLikeNDArray):
         repr_names = self.representation_component_names
         if attr in repr_names:
             if self._data is None:
-                self.data  # this raises the "no data" error by design - doing it
-                # this way means we don't have to replicate the error message here
+                # this raises the "no data" error by design - doing it this way means we
+                # don't have to replicate the error message here.
+                self.data  # noqa: B018
 
             rep = self.represent_as(self.representation_type, in_frame_units=True)
             val = getattr(rep, repr_names[attr])
@@ -1746,7 +1746,7 @@ class BaseCoordinateFrame(ShapedLikeNDArray):
         diff_names = self.get_representation_component_names("s")
         if attr in diff_names:
             if self._data is None:
-                self.data  # see above.
+                self.data  # noqa: B018  # see above.
             # TODO: this doesn't work for the case when there is only
             # unitspherical information. The differential_type gets set to the
             # default_differential, which expects full information, so the
