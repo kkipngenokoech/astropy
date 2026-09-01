@@ -303,8 +303,18 @@ def _separable(transform):
     ) is not NotImplemented:
         return transform_matrix
     elif isinstance(transform, CompoundModel):
-        sepleft = _separable(transform.left)
-        sepright = _separable(transform.right)
+        # For nested CompoundModels, we need to get their separability matrices
+        # rather than treating them as simple models
+        if isinstance(transform.left, CompoundModel):
+            sepleft = separability_matrix(transform.left)
+        else:
+            sepleft = _separable(transform.left)
+        
+        if isinstance(transform.right, CompoundModel):
+            sepright = separability_matrix(transform.right)
+        else:
+            sepright = _separable(transform.right)
+        
         return _operators[transform.op](sepleft, sepright)
     elif isinstance(transform, Model):
         return _coord_matrix(transform, "left", transform.n_outputs)
