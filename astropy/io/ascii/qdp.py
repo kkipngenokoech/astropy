@@ -60,7 +60,7 @@ def _line_type(line, delimiter=None):
     ValueError: Unrecognized QDP line...
     """
     _decimal_re = r"[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?"
-    _command_re = r"READ [TS]ERR(\s+[0-9]+)+"
+    _command_re = r"(?i)READ [ts]err(\s+[0-9]+)+"
 
     sep = delimiter
     if delimiter is None:
@@ -637,6 +637,5 @@ class QDP(basic.Basic):
         )
 
     def write(self, table):
-        self._check_multidim_table(table)
-        lines = _write_table_qdp(table, err_specs=self.err_specs)
-        return lines
+        self.lines = _write_table_qdp(table, err_specs=self.err_specs)
+        return self.lines
